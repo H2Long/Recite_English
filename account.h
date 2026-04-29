@@ -111,4 +111,11 @@ int Account_GetCurrentIndex(void);
  */
 void Account_GetProgressPath(char* buffer, int size);
 
+/**
+ * 获取当前用户的计划文件路径
+ * @param buffer 输出缓冲区
+ * @param size 缓冲区大小
+ */
+void Account_GetPlanPath(char* buffer, int size);
+
 #endif // ACCOUNT_H

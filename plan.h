@@ -15,7 +15,16 @@
 
 #define MAX_PLANS         20
 #define PLAN_NAME_MAX     64
-#define PLAN_FILE         "./plans.txt"
+#define PLAN_FILE_DEFAULT "./plans.txt"
+
+/**
+ * 设置计划文件路径（用于多用户切换）
+ * @param path 计划文件路径
+ */
+void Plan_SetFilePath(const char* path);
+
+/**
+ * 初始化学习计划系统
 
 // ============================================================================
 // 数据结构

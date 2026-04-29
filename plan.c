@@ -13,6 +13,15 @@
 // ============================================================================
 
 static PlanState g_planState = {0};
+static char g_planFilePath[256] = "./plans.txt";
+
+void Plan_SetFilePath(const char* path) {
+    strncpy(g_planFilePath, path, sizeof(g_planFilePath) - 1);
+    g_planFilePath[sizeof(g_planFilePath) - 1] = '\0';
+    printf("INFO: Plan file set to: %s\n", g_planFilePath);
+    // 重新从新路径加载
+    Plan_Init();
+}
 
 // ============================================================================
 // 默认计划
@@ -51,7 +60,7 @@ void Plan_Init(void) {
     g_planState.planCount = 0;
     g_planState.activePlanIndex = -1;
 
-    FILE* fp = fopen(PLAN_FILE, "r");
+    FILE* fp = fopen(g_planFilePath, "r");
     if (fp == NULL) {
         printf("INFO: No plan file found, adding default plans\n");
         Plan_AddDefaults();
@@ -93,7 +102,7 @@ void Plan_Init(void) {
 }
 
 void Plan_Save(void) {
-    FILE* fp = fopen(PLAN_FILE, "w");
+    FILE* fp = fopen(g_planFilePath, "w");
     if (fp == NULL) { printf("WARNING: Cannot save plans\n"); return; }
     for (int i = 0; i < g_planState.planCount; i++) {
         LearningPlan* p = &g_planState.plans[i];

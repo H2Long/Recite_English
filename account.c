@@ -221,3 +221,13 @@ void Account_GetProgressPath(char* buffer, int size) {
         snprintf(buffer, size, "%s", "./progress.txt");
     }
 }
+
+void Account_GetPlanPath(char* buffer, int size) {
+    AccountState* s = getState();
+    if (s->isLoggedIn) {
+        snprintf(buffer, size, "./plans_%s.txt",
+                 s->users[s->currentUserIndex].username);
+    } else {
+        snprintf(buffer, size, "%s", "./plans.txt");
+    }
+}

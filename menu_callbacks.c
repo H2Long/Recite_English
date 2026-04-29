@@ -903,26 +903,45 @@ void MenuPlanManager_Show(void) {
     for (int i = 0; i < PLAN_STATE.planCount; i++) {
         Rectangle item = {listArea.x + 10, listArea.y + 5 + i * 60 - sv.scrollOffset.y, listArea.width - 20, 55};
         bool isActive = (i == Plan_GetActiveIndex());
-        if (isActive) DrawRectangleRec(item, Fade(STYLE->theme.primary, 0.2f));
 
+        // 背景色：激活用蓝色，悬停用浅灰色
+        if (isActive) {
+            DrawRectangleRounded(item, 0.08f, 6, Fade(STYLE->theme.primary, 0.15f));
+            DrawRectangleRoundedLines(item, 0.08f, 6, STYLE->theme.primary);
+            // 左侧指示条（激活标记）
+            DrawRectangleRec((Rectangle){item.x, item.y, 4, item.height}, STYLE->theme.primary);
+        } else {
+            bool hover = CheckCollisionPointRec(UI_STATE->mousePos, item);
+            if (hover) DrawRectangleRec(item, Fade(STYLE->theme.primary, 0.06f));
+        }
+
+        // 点击激活
         if (CheckCollisionPointRec(UI_STATE->mousePos, item) && UI_STATE->mouseReleased && !isActive) {
             Plan_SetActive(i);
         }
 
-        DrawTextAuto(PLAN_STATE.plans[i].name, (Vector2){item.x + 10, item.y + 5}, 22, 1, isActive ? STYLE->theme.primary : STYLE->theme.textPrimary);
-        char sub[128];
-        snprintf(sub, sizeof(sub), u8"%d词/天 × %d天  |  第%d天",
-                 PLAN_STATE.plans[i].dailyWordCount, PLAN_STATE.plans[i].totalDays,
-                 PLAN_STATE.plans[i].currentDay + 1);
-        DrawTextAuto(sub, (Vector2){item.x + 10, item.y + 30}, 16, 1, STYLE->theme.textSecondary);
-        if (isActive) DrawTextAuto(u8"[当前]", (Vector2){item.x + item.width - 65, item.y + 8}, 18, 1, STYLE->theme.primary);
-
-        // 删除按钮
-        Rectangle delBtn = {item.x + item.width - 35, item.y + 30, 28, 20};
-        if (CheckCollisionPointRec(UI_STATE->mousePos, delBtn) && UI_STATE->mouseReleased) {
-            Plan_Delete(i);
+        // 计划名 + 激活标记
+        float nameX = item.x + 18;
+        DrawTextAuto(PLAN_STATE.plans[i].name, (Vector2){nameX, item.y + 4}, 22, 1,
+                     isActive ? STYLE->theme.primary : STYLE->theme.textPrimary);
+        if (isActive) {
+            DrawTextAuto(u8"▶ 当前使用", (Vector2){item.x + item.width - 100, item.y + 4}, 16, 1, STYLE->theme.primary);
         }
-        DrawTextAuto(u8"×", (Vector2){delBtn.x + 8, delBtn.y + 2}, 18, 1, STYLE->theme.error);
+
+        // 计划参数 + 进度
+        char sub[128];
+        LearningPlan* p = &PLAN_STATE.plans[i];
+        float dayProg = p->totalDays > 0 ? (float)(p->currentDay + 1) / p->totalDays : 0;
+        if (dayProg > 1.0f) dayProg = 1.0f;
+        snprintf(sub, sizeof(sub), u8"%d词/天 × %d天  进度 %d%%",
+                 p->dailyWordCount, p->totalDays, (int)(dayProg * 100));
+        DrawTextAuto(sub, (Vector2){nameX, item.y + 29}, 14, 1, STYLE->theme.textSecondary);
+
+        // 进度条（小）
+        Rectangle bar = {nameX, item.y + 48, item.width - nameX + item.x - listArea.x - 50, 4};
+        DrawRectangleRec(bar, Fade(STYLE->theme.textSecondary, 0.2f));
+        DrawRectangleRec((Rectangle){bar.x, bar.y, bar.width * dayProg, bar.height},
+                         isActive ? STYLE->theme.primary : STYLE->theme.success);
     }
     UIEndScrollView(&sv, STYLE, UI_STATE);
     planListScroll = sv.scrollOffset.y;
@@ -1153,7 +1172,7 @@ void MenuSettings_Show(void) {
 
     // 关于内容
     Rectangle aboutContent = {aboutSection.x + 30, aboutSection.y + 50, 600, 60};
-    const char* aboutText = u8"背单词软件 v4.0.0\n基于 raylib 构建，支持中英文混合显示";
+    const char* aboutText = u8"背单词软件 v4.1.0\n基于 raylib 构建，支持中英文混合显示";
     UIDrawTextRec(aboutText, aboutContent, 18, 1, true, STYLE->theme.textSecondary);
 }
 
@@ -1424,6 +1443,7 @@ void MenuAccount_Show(void) {
             Account_Logout();
             setProgressFilePath("./progress.txt");
             loadProgress();
+            Plan_SetFilePath("./plans.txt");
             snprintf(LOGIN_MSG, 128, "%s", u8"已登出");
         }
 
@@ -1432,6 +1452,7 @@ void MenuAccount_Show(void) {
             Account_Logout();
             setProgressFilePath("./progress.txt");
             loadProgress();
+            Plan_SetFilePath("./plans.txt");
             g_accountSubPage = 1;
         }
     } else {
@@ -1594,14 +1615,17 @@ void MenuLogin_Show(void) {
     if (UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 310)) {
         if (strlen(g_loginForm.username) > 0 && strlen(g_loginForm.password) > 0) {
             if (Account_Login(g_loginForm.username, g_loginForm.password)) {
-                char progressPath[256];
+                char progressPath[256], planPath[256];
                 Account_GetProgressPath(progressPath, sizeof(progressPath));
                 setProgressFilePath(progressPath);
                 loadProgress();
+                Account_GetPlanPath(planPath, sizeof(planPath));
+                Plan_SetFilePath(planPath);
                 snprintf(LOGIN_MSG, 128, u8"欢迎回来，%s！", Account_GetCurrentUser());
                 memset(&g_loginForm, 0, sizeof(g_loginForm));
                 g_loginForm.initialized = true;
-                g_accountSubPage = 0;  // 返回账号主页面
+                g_accountSubPage = 0;
+                g_app.loginRequired = false;
                 CURRENT_MENU = g_app.rootMenu;
             } else {
                 snprintf(LOGIN_MSG, 128, "%s", u8"登录失败：用户名或密码错误");
@@ -1707,14 +1731,17 @@ void MenuRegister_Show(void) {
             snprintf(LOGIN_MSG, 128, "%s", u8"两次密码输入不一致");
         } else if (Account_Register(g_regForm.username, g_regForm.password)) {
             Account_Login(g_regForm.username, g_regForm.password);
-            char progressPath[256];
+            char progressPath[256], planPath[256];
             Account_GetProgressPath(progressPath, sizeof(progressPath));
             setProgressFilePath(progressPath);
             loadProgress();
+            Account_GetPlanPath(planPath, sizeof(planPath));
+            Plan_SetFilePath(planPath);
             snprintf(LOGIN_MSG, 128, u8"注册成功，欢迎 %s！", g_regForm.username);
             memset(&g_regForm, 0, sizeof(g_regForm));
             g_regForm.initialized = true;
             g_accountSubPage = 0;
+            g_app.loginRequired = false;
             CURRENT_MENU = g_app.rootMenu;
         } else {
             snprintf(LOGIN_MSG, 128, "%s", u8"注册失败：用户名已存在或无效");

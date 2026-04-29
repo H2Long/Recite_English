@@ -54,6 +54,7 @@ int main(void) {
 
     // 初始化应用状态（统一管理所有状态变量）
     AppState_Init();
+    g_app.loginRequired = true;
 
     // 初始化菜单树
     InitMenuTree();
@@ -146,6 +147,48 @@ int main(void) {
         // 根据当前菜单显示对应页面
         if (CURRENT_MENU->show != NULL) {
             CURRENT_MENU->show();
+        }
+
+        // --------------------------------------------------------------------
+        // 登录强制层：未登录时覆盖所有页面
+        // --------------------------------------------------------------------
+        // 登录提醒：未登录时在非账号页面显示遮罩
+        if (g_app.loginRequired && !Account_IsLoggedIn()) {
+            bool isAccountPage = (CURRENT_MENU->show == MenuAccount_Show ||
+                                  CURRENT_MENU->show == MenuLogin_Show ||
+                                  CURRENT_MENU->show == MenuRegister_Show);
+            if (!isAccountPage) {
+                // 半透明遮罩
+                DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.6f));
+
+                // 提示面板
+                Rectangle panel = {SCREEN_WIDTH/2 - 280, SCREEN_HEIGHT/2 - 160, 560, 320};
+                DrawRectangleRounded(panel, 0.1f, 12, STYLE->theme.panelBg);
+                DrawRectangleRoundedLines(panel, 0.1f, 12, STYLE->theme.primary);
+
+                // 标题
+                DrawTextAuto(u8"请先登录", (Vector2){SCREEN_WIDTH/2 - 80, panel.y + 30}, 36, 1, STYLE->theme.primary);
+                DrawTextAuto(u8"使用本软件前需要登录账号", (Vector2){SCREEN_WIDTH/2 - 140, panel.y + 80}, 22, 1, STYLE->theme.textSecondary);
+                DrawTextAuto(u8"学习进度将按账号独立保存", (Vector2){SCREEN_WIDTH/2 - 130, panel.y + 110}, 22, 1, STYLE->theme.textSecondary);
+
+                // 登录按钮
+                Rectangle loginBtn = {SCREEN_WIDTH/2 - 120, panel.y + 170, 240, 55};
+                if (UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 800)) {
+                    if (g_accountMenuNode != NULL) {
+                        StackPush(AppState_GetMenuStack(), CURRENT_MENU);
+                        CURRENT_MENU = g_accountMenuNode;
+                    }
+                }
+
+                // 注册按钮
+                Rectangle regBtn = {SCREEN_WIDTH/2 - 120, panel.y + 240, 240, 55};
+                if (UIButton(u8"注册账号", regBtn, STYLE, UI_STATE, 801)) {
+                    if (g_accountMenuNode != NULL) {
+                        StackPush(AppState_GetMenuStack(), CURRENT_MENU);
+                        CURRENT_MENU = g_accountMenuNode;
+                    }
+                }
+            }
         }
 
         EndDrawing();
