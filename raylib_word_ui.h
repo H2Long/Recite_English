@@ -53,6 +53,8 @@ typedef struct {
     char buffer[1024];       // 文本缓冲区
     int cursor;             // 光标位置（字符索引）
     bool hasFocus;          // 是否获得焦点
+    float backspaceHoldTime;    // 退格键按住时间
+    float lastBackspaceDelete;  // 上次删除时间
 } UITextBoxState;
 
 // ============================================================================
@@ -133,10 +135,11 @@ typedef struct {
 
 // 单词条目（来自 words.txt）
 typedef struct {
-    char* word;         // 单词
-    char* phonetic;     // 音标
-    char* definition;   // 释义
-    char* example;      // 例句
+    char* word;              // 单词
+    char* phonetic;          // 音标
+    char* definition;       // 释义
+    char* example;           // 例句
+    char* exampleTranslation; // 例句翻译
 } WordEntry;
 
 // ============================================================================

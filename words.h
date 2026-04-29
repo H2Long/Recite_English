@@ -94,4 +94,22 @@ void loadProgress(void);
  */
 void clearProgress(void);
 
+/**
+ * 使用正则表达式搜索单词
+ * @param pattern 搜索模式（支持正则表达式）
+ * @param results 存放搜索结果索引的数组
+ * @param maxResults 最大结果数量
+ * @return 匹配到的结果数量
+ */
+int searchWordsByRegex(const char* pattern, int* results, int maxResults);
+
+/**
+ * 简单的模糊搜索（不区分大小写，包含匹配）
+ * @param query 搜索关键词
+ * @param results 存放搜索结果索引的数组
+ * @param maxResults 最大结果数量
+ * @return 匹配到的结果数量
+ */
+int searchWordsSimple(const char* query, int* results, int maxResults);
+
 #endif // WORDS_H

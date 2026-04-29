@@ -10,13 +10,41 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | raylib-word |
-| 当前版本 | v1.4.0 |
+| 当前版本 | v1.5.0 |
 | 创建日期 | 2025-01-26 |
-| 最近更新 | 2025-01-26 |
+| 最近更新 | 2026-04-29 |
 
 ---
 
 ## 更新日志
+
+### v1.5.0 (2026-04-29) - 退格键支持与光标修正
+
+#### 新增内容
+
+1. **退格键持续删除** - `raylib_word_ui.c`
+   - 搜索框支持 BACKSPACE 键删除已输入字符
+   - 采用 `GetKeyPressed()` + `IsKeyPressed()` 双重检测确保可靠性
+
+2. **字体扩展** - `fonts.c`
+   - `allChinese` 字符串新增约 300 个常用汉字
+   - 新增中文标点符号：。，、：；？！“”‘’（）【】《》——……
+
+#### 修复内容
+
+1. **`utf8_delete_left` 边界条件修复** - `raylib_word_ui.c:344`
+   - while 循环中 `>` 改为 `>=`，修复光标位于字符串末尾时删除无效的 bug
+   - 原因：`prev_byte + len == byte_offset` 时循环多走一步，导致 `memmove` 从自己拷贝到自己
+
+2. **文本框焦点 ID 修复** - `raylib_word_ui.c:692`
+   - 将 `UIGetID(state->buffer)` 改为 `(int)(unsigned long)(void*)state`
+   - 原因：空 buffer 时 `UIGetID("")` 返回 0，与 `focusItem` 初值相同，造成永久焦点假象
+
+3. **光标位置精度修复** - `raylib_word_ui.c`
+   - 光标绘制时 `MeasureTextEx(style->font, ...)` 改为 `MeasureTextAuto(...)`
+   - 原因：单一字体测量混合文本（中/英/IPA）导致光标偏移
+
+---
 
 ### v1.4.0 (2025-01-26) - 深色模式支持
 

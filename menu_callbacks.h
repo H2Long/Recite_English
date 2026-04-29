@@ -52,6 +52,12 @@ void MenuReview_Show(void);
 void MenuTest_Show(void);
 
 /**
+ * 查找单词模式
+ * 使用正则表达式或模糊搜索查找单词，显示详细信息
+ */
+void MenuSearch_Show(void);
+
+/**
  * 进度模式
  * 显示学习统计和每个单词的详细进度
  */

@@ -17,6 +17,7 @@
 #define LEARN    (*AppState_GetLearnState())
 #define REVIEW   (*AppState_GetReviewState())
 #define TEST     (*AppState_GetTestState())
+#define SEARCH   (*AppState_GetSearchState())
 
 // ============================================================================
 // 主菜单显示
@@ -63,41 +64,42 @@ void MenuHome_Show(void) {
     DrawTextAuto(statsText, (Vector2){statsTextRect.x, statsTextRect.y + 28}, 22, 1, STYLE->theme.textPrimary);
 
     // --------------------------------------------------------------------
-    // 功能卡片（学单词、背单词、测试）
+    // 功能卡片（学单词、背单词、测试、查找）
     // --------------------------------------------------------------------
     Rectangle cardsRect = UILayoutNext(&layout, -1, 160);
-    UILayout cardsLayout = UIBeginLayout(cardsRect, UI_DIR_HORIZONTAL, 25, 0);
+    UILayout cardsLayout = UIBeginLayout(cardsRect, UI_DIR_HORIZONTAL, 20, 0);
 
     // 模式配置
     struct { const char* title; const char* desc; MENU* target; Color color; } modes[] = {
         {u8"学单词", u8"详细学习每个单词的释义和用法", NULL, (Color){70, 130, 180, 255}},
         {u8"背单词", u8"使用闪卡翻转记忆", NULL, (Color){60, 179, 113, 255}},
-        {u8"测试", u8"选择题检验学习成果", NULL, (Color){255, 140, 0, 255}}
+        {u8"测试", u8"选择题检验学习成果", NULL, (Color){255, 140, 0, 255}},
+        {u8"查找单词", u8"正则表达式快速查找", NULL, (Color){138, 43, 226, 255}}
     };
 
     // 关联菜单节点
-    for (int i = 0; i < g_app.rootMenu->childindex && i < 3; i++) {
+    for (int i = 0; i < g_app.rootMenu->childindex && i < 4; i++) {
         modes[i].target = g_app.rootMenu->child[i];
     }
 
     // 绘制卡片
-    for (int i = 0; i < 3; i++) {
-        Rectangle cardRect = UILayoutNext(&cardsLayout, 320, -1);
+    for (int i = 0; i < 4; i++) {
+        Rectangle cardRect = UILayoutNext(&cardsLayout, 240, -1);
 
         // 卡片背景和边框
         DrawRectangleRounded(cardRect, 0.1f, 12, STYLE->theme.panelBg);
         DrawRectangleRoundedLines(cardRect, 0.1f, 12, modes[i].color);
 
         // 标题
-        Vector2 titleS = MeasureTextAuto(modes[i].title, 36, 1);
-        DrawTextAuto(modes[i].title, (Vector2){cardRect.x + 20, cardRect.y + 20}, 36, 1, modes[i].color);
+        Vector2 titleS = MeasureTextAuto(modes[i].title, 32, 1);
+        DrawTextAuto(modes[i].title, (Vector2){cardRect.x + 15, cardRect.y + 15}, 32, 1, modes[i].color);
 
         // 描述
-        Rectangle descArea = {cardRect.x + 20, cardRect.y + 70, cardRect.width - 40, cardRect.height - 100};
-        UIDrawTextRec(modes[i].desc, descArea, 22, 1, true, STYLE->theme.textSecondary);
+        Rectangle descArea = {cardRect.x + 15, cardRect.y + 55, cardRect.width - 30, cardRect.height - 80};
+        UIDrawTextRec(modes[i].desc, descArea, 18, 1, true, STYLE->theme.textSecondary);
 
         // "开始"按钮
-        Rectangle goBtn = {cardRect.x + cardRect.width - 130, cardRect.y + cardRect.height - 65, 110, 50};
+        Rectangle goBtn = {cardRect.x + cardRect.width - 100, cardRect.y + cardRect.height - 55, 85, 45};
         // 使用唯一 ID (100+i) 避免按钮状态冲突
         if (UIButton(u8"开始", goBtn, STYLE, UI_STATE, 100 + i) && modes[i].target != NULL) {
             StackPush(AppState_GetMenuStack(), modes[i].target);
@@ -691,8 +693,136 @@ void MenuSettings_Show(void) {
 
     // 关于内容
     Rectangle aboutContent = {aboutSection.x + 30, aboutSection.y + 50, 600, 60};
-    const char* aboutText = u8"背单词软件 v1.3.0\n基于 raylib 构建，支持中英文混合显示";
+    const char* aboutText = u8"背单词软件 v1.5.0\n基于 raylib 构建，支持中英文混合显示";
     UIDrawTextRec(aboutText, aboutContent, 18, 1, true, STYLE->theme.textSecondary);
+}
+
+// ============================================================================
+// 查找单词模式
+// 使用正则表达式或模糊搜索查找单词，显示详细信息
+// ============================================================================
+void MenuSearch_Show(void) {
+    Rectangle contentRect = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 25, 30);
+
+    // --------------------------------------------------------------------
+    // 搜索框区域
+    // --------------------------------------------------------------------
+    Rectangle searchPanel = UILayoutNext(&layout, -1, 130);
+    DrawRectangleRounded(searchPanel, 0.1f, 12, STYLE->theme.panelBg);
+
+    // 搜索标题
+    Rectangle titleRect = {searchPanel.x + 25, searchPanel.y + 15, 200, 40};
+    DrawTextAuto(u8"查找单词", (Vector2){titleRect.x, titleRect.y}, 28, 1, STYLE->theme.textPrimary);
+
+    // 搜索提示
+    Rectangle hintRect = {searchPanel.x + 25, searchPanel.y + 55, 500, 30};
+    DrawTextAuto(u8"支持正则表达式，例如: ab.*  或  ^acc.*", (Vector2){hintRect.x, hintRect.y}, 18, 1, STYLE->theme.textSecondary);
+
+    // 搜索输入框
+    Rectangle inputRect = {searchPanel.x + 25, searchPanel.y + 85, searchPanel.width - 150, 45};
+    UISearchBar(&SEARCH.searchBar, inputRect, STYLE, UI_STATE);
+
+    // 搜索按钮
+    Rectangle btnRect = {searchPanel.x + searchPanel.width - 115, searchPanel.y + 85, 90, 45};
+    static int lastSearchLen = 0;
+    if (UIButton(u8"搜索", btnRect, STYLE, UI_STATE, 7)) {
+        // 执行搜索
+        const char* query = SEARCH.searchBar.textState.buffer;
+        if (strlen(query) > 0) {
+            // 尝试正则表达式搜索
+            SEARCH.searchResultCount = searchWordsByRegex(query, SEARCH.searchResults, MAX_WORDS);
+            // 如果正则失败或没结果，使用简单搜索
+            if (SEARCH.searchResultCount == 0) {
+                SEARCH.searchResultCount = searchWordsSimple(query, SEARCH.searchResults, MAX_WORDS);
+            }
+        }
+    }
+
+    // 检测到输入变化时自动搜索
+    int currentLen = strlen(SEARCH.searchBar.textState.buffer);
+    if (currentLen > 0 && currentLen != lastSearchLen) {
+        const char* query = SEARCH.searchBar.textState.buffer;
+        SEARCH.searchResultCount = searchWordsByRegex(query, SEARCH.searchResults, MAX_WORDS);
+        if (SEARCH.searchResultCount == 0) {
+            SEARCH.searchResultCount = searchWordsSimple(query, SEARCH.searchResults, MAX_WORDS);
+        }
+    }
+    lastSearchLen = currentLen;
+
+    // --------------------------------------------------------------------
+    // 搜索结果区域
+    // --------------------------------------------------------------------
+    Rectangle resultPanel = UILayoutNext(&layout, -1, -1);
+    DrawRectangleRounded(resultPanel, 0.1f, 12, STYLE->theme.panelBg);
+
+    if (SEARCH.searchResultCount == 0 && strlen(SEARCH.searchBar.textState.buffer) > 0) {
+        // 没有找到结果
+        Rectangle msgRect = {resultPanel.x + 30, resultPanel.y + 30, resultPanel.width - 60, 60};
+        DrawRectangleRounded(msgRect, 0.1f, 8, STYLE->theme.inputBg);
+        const char* msg = u8"没有找到匹配的单词";
+        Vector2 msgSize = MeasureTextAuto(msg, 26, 1);
+        DrawTextAuto(msg, (Vector2){resultPanel.x + resultPanel.width/2 - msgSize.x/2, resultPanel.y + resultPanel.height/2 - msgSize.y/2}, 26, 1, STYLE->theme.textSecondary);
+    } else if (SEARCH.searchResultCount > 0) {
+        // 显示搜索结果数量
+        Rectangle countRect = {resultPanel.x + 25, resultPanel.y + 15, 300, 35};
+        char countText[64];
+        snprintf(countText, sizeof(countText), u8"找到 %d 个结果", SEARCH.searchResultCount);
+        DrawTextAuto(countText, (Vector2){countRect.x, countRect.y}, 22, 1, STYLE->theme.textSecondary);
+
+        // 结果列表（可滚动）
+        Rectangle listRect = {resultPanel.x, resultPanel.y + 55, resultPanel.width, resultPanel.height - 70};
+        UIScrollView sv = {0};
+        sv.viewport = listRect;
+        sv.contentSize = (Vector2){listRect.width - 30, SEARCH.searchResultCount * 235.0f};
+        UIBeginScrollView(&sv, listRect, sv.contentSize);
+
+        // 绘制每个结果
+        for (int i = 0; i < SEARCH.searchResultCount; i++) {
+            int wordIdx = SEARCH.searchResults[i];
+            WordEntry* entry = &g_words[wordIdx].entry;
+
+            Rectangle itemRect = {listRect.x + 20, listRect.y + i * 230 - sv.scrollOffset.y, listRect.width - 40, 215};
+            DrawRectangleRounded(itemRect, 0.1f, 8, STYLE->theme.inputBg);
+
+            // 单词
+            DrawTextAuto(entry->word, (Vector2){itemRect.x + 20, itemRect.y + 15}, 36, 1, STYLE->theme.primary);
+
+            // 音标
+            if (entry->phonetic && *entry->phonetic) {
+                DrawTextAuto(entry->phonetic, (Vector2){itemRect.x + 20, itemRect.y + 55}, 24, 1, STYLE->theme.textSecondary);
+            }
+
+            // 释义标签和内容
+            DrawTextAuto(u8"释义", (Vector2){itemRect.x + 20, itemRect.y + 85}, 18, 1, STYLE->theme.textSecondary);
+            Rectangle defRect = {itemRect.x + 20, itemRect.y + 105, itemRect.width - 40, 35};
+            UIDrawTextRec(entry->definition, defRect, 22, 1, true, STYLE->theme.textPrimary);
+
+            // 例句标签和内容
+            if (entry->example && *entry->example) {
+                DrawTextAuto(u8"例句", (Vector2){itemRect.x + 20, itemRect.y + 140}, 18, 1, STYLE->theme.textSecondary);
+                Rectangle exRect = {itemRect.x + 75, itemRect.y + 140, itemRect.width - 95, 35};
+                UIDrawTextRec(entry->example, exRect, 20, 1, true, STYLE->theme.textSecondary);
+
+                // 例句翻译
+                if (entry->exampleTranslation && *entry->exampleTranslation) {
+                    Rectangle transLabelRect = {itemRect.x + 20, itemRect.y + 175, 100, 30};
+                    DrawTextAuto(u8"翻译", (Vector2){transLabelRect.x, transLabelRect.y}, 18, 1, (Color){100, 149, 237, 255});
+                    Rectangle transRect = {itemRect.x + 75, itemRect.y + 175, itemRect.width - 95, 35};
+                    UIDrawTextRec(entry->exampleTranslation, transRect, 20, 1, true, STYLE->theme.textPrimary);
+                }
+            }
+        }
+
+        UIEndScrollView(&sv, STYLE, UI_STATE);
+    } else {
+        // 初始状态，提示用户输入
+        Rectangle msgRect = {resultPanel.x + 30, resultPanel.y + 30, resultPanel.width - 60, 60};
+        DrawRectangleRounded(msgRect, 0.1f, 8, STYLE->theme.inputBg);
+        const char* msg = u8"请在上方输入要查找的单词";
+        Vector2 msgSize = MeasureTextAuto(msg, 24, 1);
+        DrawTextAuto(msg, (Vector2){resultPanel.x + resultPanel.width/2 - msgSize.x/2, resultPanel.y + resultPanel.height/2 - msgSize.y/2}, 24, 1, STYLE->theme.textSecondary);
+    }
 }
 
 // ============================================================================
@@ -708,6 +838,7 @@ void InitMenuTree(void) {
     MENU* menuLearn = CreatMenuTreeNode(NULL, MenuLearn_Show);
     MENU* menuReview = CreatMenuTreeNode(NULL, MenuReview_Show);
     MENU* menuTest = CreatMenuTreeNode(NULL, MenuTest_Show);
+    MENU* menuSearch = CreatMenuTreeNode(NULL, MenuSearch_Show);
     MENU* menuProgress = CreatMenuTreeNode(NULL, MenuProgress_Show);
     MENU* menuSettings = CreatMenuTreeNode(NULL, MenuSettings_Show);
 
@@ -718,6 +849,7 @@ void InitMenuTree(void) {
     ConnectMenuTree(g_app.rootMenu, menuLearn);
     ConnectMenuTree(g_app.rootMenu, menuReview);
     ConnectMenuTree(g_app.rootMenu, menuTest);
+    ConnectMenuTree(g_app.rootMenu, menuSearch);
     ConnectMenuTree(g_app.rootMenu, menuProgress);
     ConnectMenuTree(g_app.rootMenu, menuSettings);
 
@@ -757,6 +889,7 @@ const char* GetMenuItemText(MENU* menu) {
     if (menu->show == MenuLearn_Show) return u8"学单词";
     if (menu->show == MenuReview_Show) return u8"背单词";
     if (menu->show == MenuTest_Show) return u8"测试";
+    if (menu->show == MenuSearch_Show) return u8"查找单词";
     if (menu->show == MenuProgress_Show) return u8"学习进度";
     if (menu->show == MenuSettings_Show) return u8"设置";
     return "";

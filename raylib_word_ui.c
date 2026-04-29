@@ -5,6 +5,9 @@
 
 #include "raylib_word_ui.h"
 #include <string.h>
+
+// 外部函数：测量混合文本宽度
+extern Vector2 MeasureTextAuto(const char* text, float fontSize, float spacing);
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -341,7 +344,7 @@ static void utf8_delete_left(char* buffer, int* cursor_char_index) {
     // 找到前一个字符的起始位置
     while (prev_byte < byte_offset) {
         int len = utf8_char_len((unsigned char)buffer[prev_byte]);
-        if (prev_byte + len > byte_offset) break;
+        if (prev_byte + len >= byte_offset) break;
         prev_byte += len;
         prev_index++;
     }
@@ -680,7 +683,7 @@ void UILabel(const char* text, Rectangle rect, UIStyle* style, Color color) {
 
 /**
  * 文本输入框
- * 支持 UTF-8 中文输入
+ * 支持 UTF-8 中文输入和退格键持续删除
  * @param state 输入框状态
  * @param rect 输入框区域
  * @param style 样式指针
@@ -689,26 +692,39 @@ void UILabel(const char* text, Rectangle rect, UIStyle* style, Color color) {
  * @return 是否按下回车
  */
 bool UITextBox(UITextBoxState* state, Rectangle rect, UIStyle* style, UIState* uistate, bool password) {
-    int id = UIGetID(state->buffer);
+    // 使用 state 指针生成唯一ID
+    int id = (int)(unsigned long)(void*)state;
     bool isInside = CheckCollisionPointRec(uistate->mousePos, rect);
 
-    // 处理焦点
-    if (isInside) uistate->hotItem = id;
+    // 处理焦点 - 鼠标点击设置焦点
     if (uistate->mousePressed) {
-        uistate->focusItem = isInside ? id : 0;
-        state->hasFocus = (uistate->focusItem == id);
-        if (state->hasFocus) {
-            // 获得焦点时将光标移到末尾
+        if (isInside) {
+            uistate->focusItem = id;
+            state->hasFocus = true;
             state->cursor = utf8_strlen(state->buffer);
+        } else {
+            // 点击其他地方，清除焦点
+            if (uistate->focusItem == id) {
+                uistate->focusItem = 0;
+                state->hasFocus = false;
+            }
         }
     }
+    
+    // 更新悬停状态
+    if (isInside) uistate->hotItem = id;
 
-    // 键盘输入处理
+    // 键盘输入处理 - 只有获得焦点时才处理
     if (state->hasFocus) {
         int key = uistate->keyPressed;
-        if (key == KEY_BACKSPACE) {
+        
+        // 处理退格键
+        if (key == KEY_BACKSPACE || IsKeyPressed(KEY_BACKSPACE)) {
             utf8_delete_left(state->buffer, &state->cursor);
-        } else if (key == KEY_DELETE) {
+        }
+        
+        // 处理其他键
+        if (key == KEY_DELETE) {
             utf8_delete_right(state->buffer, &state->cursor);
         } else if (key == KEY_LEFT) {
             if (state->cursor > 0) state->cursor--;
@@ -745,7 +761,7 @@ bool UITextBox(UITextBoxState* state, Rectangle rect, UIStyle* style, UIState* u
         char before[1024];
         strncpy(before, state->buffer, byte_offset);
         before[byte_offset] = '\0';
-        Vector2 textSizeBefore = MeasureTextEx(style->font, before, style->fontSizeNormal, 1);
+        Vector2 textSizeBefore = MeasureTextAuto(before, style->fontSizeNormal, 1);
         float cursorX = rect.x + 8 + textSizeBefore.x;
         DrawLineEx((Vector2){ cursorX, rect.y + 4 }, (Vector2){ cursorX, rect.y + rect.height - 4 }, 2, style->theme.textPrimary);
     }

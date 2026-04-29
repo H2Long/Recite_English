@@ -48,6 +48,11 @@ void AppState_Init(void) {
     g_app.test.answerResult = -1;
     g_app.test.currentCorrectIdx = 0;
     memset(g_app.test.wrongOptionsUsed, 0, sizeof(g_app.test.wrongOptionsUsed));
+    
+    // 查找单词模式状态初始化
+    memset(g_app.search.searchInput, 0, sizeof(g_app.search.searchInput));
+    g_app.search.searchResultCount = 0;
+    memset(&g_app.search.searchBar, 0, sizeof(g_app.search.searchBar));
 }
 
 void AppState_Reset(void) {
@@ -115,6 +120,10 @@ ReviewState* AppState_GetReviewState(void) {
 
 TestState* AppState_GetTestState(void) {
     return &g_app.test;
+}
+
+SearchState* AppState_GetSearchState(void) {
+    return &g_app.search;
 }
 
 // ============================================================================

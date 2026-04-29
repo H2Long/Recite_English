@@ -1,41 +1,41 @@
-abandon|[ə'bændən]|v. 放弃；抛弃|Never abandon your dreams.
-ability|[ə'bɪləti]|n. 能力|She has the ability to speak three languages.
-absence|['æbsəns]|n. 缺席；缺乏|His absence was noticed by everyone.
-absolute|['æbsəluːt]|adj. 绝对的|It is an absolute necessity.
-absorb|[əb'zɔːrb]|v. 吸收；理解|Plants absorb water from the soil.
-abstract|['æbstrækt]|adj. 抽象的|The concept is too abstract.
-abundant|[ə'bʌndənt]|adj. 丰富的|We have abundant resources.
-academic|[ˌækə'demɪk]|adj. 学术的|She has excellent academic records.
-accelerate|[ək'seləreɪt]|v. 加速|The car began to accelerate.
-accomplish|[ə'kʌmplɪʃ]|v. 完成|We accomplished our mission.
-accurate|['ækjərət]|adj. 准确的|The clock shows accurate time.
-achieve|[ə'tʃiːv]|v. 达到；实现|You can achieve your goals.
-acknowledge|[ək'nɒlɪdʒ]|v. 承认|He acknowledged his mistake.
-acquire|[ə'kwaɪər]|v. 获得|She acquired a new skill.
-adapt|[ə'dæpt]|v. 适应；改编|We must adapt to changes.
-adequate|['ædɪkwət]|adj. 充足的|The food is adequate for ten people.
-adjust|[ə'dʒʌst]|v. 调整|Please adjust the volume.
-administration|[ədˌmɪnɪ'streɪʃn]|n. 管理；行政|She works in administration.
-admire|[əd'maɪər]|v. 钦佩；欣赏|I admire your courage.
-advance|[əd'væns]|v. 前进；进步|The army began to advance.
-adventure|[əd'ventʃər]|n. 冒险|She loves adventure.
-adverse|['ædvɜːrs]|adj. 不利的|The weather was adverse.
-advertise|['ædvərtaɪz]|v. 做广告|They advertise online.
-advice|[əd'vaɪs]|n. 建议|He gave me good advice.
-advocate|['ædvəkeɪt]|v. 提倡|We advocate peace.
-affect|[ə'fekt]|v. 影响|Weather affects mood.
-afford|[ə'fɔːrd]|v. 负担得起|I can't afford it.
-agenda|[ə'dʒendə]|n. 议程|Let's discuss the agenda.
-aggressive|[ə'gresɪv]|adj. 侵略性的|He became aggressive.
-agree|[ə'ɡriː]|v. 同意|I agree with you.
-alarm|[ə'lɑːrm]|n. 警报；惊恐|The alarm went off.
-album|['ælbəm]|n. 专辑；相册|This is a great album.
-alcohol|['ælkəhɔːl]|n. 酒精|He doesn't drink alcohol.
-alert|[ə'lɜːrt]|adj. 警觉的|Stay alert at all times.
-alike|[ə'laɪk]|adj. 相同的|The twins look alike.
-alive|[ə'laɪv]|adj. 活着的|Is she still alive?
-allow|[ə'laʊ]|v. 允许|Smoking is not allowed.
-alone|[ə'loʊn]|adj. 单独的|I want to be alone.
-alphabet|['ælfəbet]|n. 字母表|Learn the alphabet.
-alter|['ɔːltər]|v. 改变|We need to alter the plan.
-amazing|[ə'meɪzɪŋ]|adj. 令人惊异的|What an amazing view!
+abandon|[ə'bændən]|v. 放弃；抛弃|Never abandon your dreams.|永远不要放弃你的梦想。
+ability|[ə'bɪləti]|n. 能力|She has the ability to speak three languages.|她有说三种语言的能力。
+absence|['æbsəns]|n. 缺席；缺乏|His absence was noticed by everyone.|每个人都注意到了他的缺席。
+absolute|['æbsəluːt]|adj. 绝对的|It is an absolute necessity.|这是绝对必要的。
+absorb|[əb'zɔːrb]|v. 吸收；理解|Plants absorb water from the soil.|植物从土壤中吸收水分。
+abstract|['æbstrækt]|adj. 抽象的|The concept is too abstract.|这个概念太抽象了。
+abundant|[ə'bʌndənt]|adj. 丰富的|We have abundant resources.|我们拥有丰富的资源。
+academic|[ˌækə'demɪk]|adj. 学术的|She has excellent academic records.|她有优秀的学业记录。
+accelerate|[ək'seləreɪt]|v. 加速|The car began to accelerate.|汽车开始加速。
+accomplish|[ə'kʌmplɪʃ]|v. 完成|We accomplished our mission.|我们完成了任务。
+accurate|['ækjərət]|adj. 准确的|The clock shows accurate time.|这个时钟显示准确的时间。
+achieve|[ə'tʃiːv]|v. 达到；实现|You can achieve your goals.|你能够实现你的目标。
+acknowledge|[ək'nɒlɪdʒ]|v. 承认|He acknowledged his mistake.|他承认了他的错误。
+acquire|[ə'kwaɪər]|v. 获得|She acquired a new skill.|她学会了一项新技能。
+adapt|[ə'dæpt]|v. 适应；改编|We must adapt to changes.|我们必须适应变化。
+adequate|['ædɪkwət]|adj. 充足的|The food is adequate for ten people.|这些食物足够十个人吃。
+adjust|[ə'dʒʌst]|v. 调整|Please adjust the volume.|请调节音量。
+administration|[ədˌmɪnɪ'streɪʃn]|n. 管理；行政|She works in administration.|她在行政部门工作。
+admire|[əd'maɪər]|v. 钦佩；欣赏|I admire your courage.|我钦佩你的勇气。
+advance|[əd'væns]|v. 前进；进步|The army began to advance.|军队开始前进。
+adventure|[əd'ventʃər]|n. 冒险|She loves adventure.|她热爱冒险。
+adverse|['ædvɜːrs]|adj. 不利的|The weather was adverse.|天气很不利。
+advertise|['ædvərtaɪz]|v. 做广告|They advertise online.|他们在网上做广告。
+advice|[əd'vaɪs]|n. 建议|He gave me good advice.|他给了我好的建议。
+advocate|['ædvəkeɪt]|v. 提倡|We advocate peace.|我们提倡和平。
+affect|[ə'fekt]|v. 影响|Weather affects mood.|天气影响情绪。
+afford|[ə'fɔːrd]|v. 负担得起|I can't afford it.|我负担不起。
+agenda|[ə'dʒendə]|n. 议程|Let's discuss the agenda.|让我们讨论议程。
+aggressive|[ə'gresɪv]|adj. 侵略性的|He became aggressive.|他变得具有攻击性。
+agree|[ə'ɡriː]|v. 同意|I agree with you.|我同意你的看法。
+alarm|[ə'lɑːrm]|n. 警报；惊恐|The alarm went off.|警报响了。
+album|['ælbəm]|n. 专辑；相册|This is a great album.|这是一张很棒的专辑。
+alcohol|['ælkəhɔːl]|n. 酒精|He doesn't drink alcohol.|他不喝酒。
+alert|[ə'lɜːrt]|adj. 警觉的|Stay alert at all times.|始终保持警觉。
+alike|[ə'laɪk]|adj. 相同的|The twins look alike.|这对双胞胎看起来很像。
+alive|[ə'laɪv]|adj. 活着的|Is she still alive?|她还活着吗？
+allow|[ə'laʊ]|v. 允许|Smoking is not allowed.|不允许吸烟。
+alone|[ə'loʊn]|adj. 单独的|I want to be alone.|我想一个人待着。
+alphabet|['ælfəbet]|n. 字母表|Learn the alphabet.|学习字母表。
+alter|['ɔːltər]|v. 改变|We need to alter the plan.|我们需要改变计划。
+amazing|[ə'meɪzɪŋ]|adj. 令人惊异的|What an amazing view!|多么惊人的景色！

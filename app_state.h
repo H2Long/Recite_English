@@ -47,6 +47,14 @@ typedef struct {
     bool wrongOptionsUsed[MAX_WORDS]; // 标记已使用的错误选项
 } TestState;
 
+// 查找单词模式状态
+typedef struct {
+    char searchInput[256];           // 搜索输入文本
+    int searchResults[MAX_WORDS];    // 搜索结果索引数组
+    int searchResultCount;           // 搜索结果数量
+    SearchBarState searchBar;        // 搜索栏状态
+} SearchState;
+
 // ============================================================================
 // 应用状态结构体（统一管理所有状态）
 // ============================================================================
@@ -70,6 +78,7 @@ typedef struct {
     LearnState learn;       // 学单词模式状态
     ReviewState review;      // 背单词模式状态
     TestState test;         // 测试模式状态
+    SearchState search;     // 查找单词模式状态
 } AppState;
 
 // ============================================================================
@@ -115,6 +124,9 @@ ReviewState* AppState_GetReviewState(void);
 
 // 获取测试状态指针
 TestState* AppState_GetTestState(void);
+
+// 获取查找单词状态指针
+SearchState* AppState_GetSearchState(void);
 
 // 获取/设置深色模式
 bool AppState_IsDarkMode(void);              // 获取当前是否为深色模式
