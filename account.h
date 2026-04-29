@@ -30,6 +30,8 @@ typedef struct {
     char passwordHash[MAX_PASSWORD];      // 密码哈希值
     time_t createdTime;                   // 注册时间
     time_t lastLoginTime;                 // 上次登录时间
+    int selectWordCorrect;               // 选词模式正确数
+    int selectWordTotal;                 // 选词模式总题数
 } User;
 
 /**

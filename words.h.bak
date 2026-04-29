@@ -43,7 +43,6 @@ typedef struct {
 // ============================================================================
 
 extern WordWithProgress g_words[MAX_WORDS];      // 所有单词数据（含进度）
-extern WordEntry* g_wordLibrary;                 // 单词库动态数组
 extern int g_wordProgressCount;                  // 已加载的单词数量
 extern int g_wordCount;                          // 单词库总数（可能大于已加载数）
 
@@ -116,42 +115,5 @@ int searchWordsByRegex(const char* pattern, int* results, int maxResults);
  * @return 匹配到的结果数量
  */
 int searchWordsSimple(const char* query, int* results, int maxResults);
-
-// ============================================================================
-// 词库管理函数
-// ============================================================================
-
-/**
- * 保存单词库到文件
- * 写入 words.txt 格式：word|phonetic|definition|example|exampleTranslation
- * @param filename 单词文件路径
- * @return true 保存成功
- */
-bool saveWordsToFile(const char* filename);
-
-/**
- * 添加新单词到词库
- */
-bool addWordToLibrary(const char* word, const char* phonetic, const char* definition,
-                      const char* example, const char* exampleTranslation);
-
-/**
- * 编辑词库中的单词
- * @param index 单词索引
- */
-bool editWordInLibrary(int index, const char* word, const char* phonetic,
-                       const char* definition, const char* example,
-                       const char* exampleTranslation);
-
-/**
- * 删除词库中的单词
- * @param index 要删除的单词索引
- */
-bool deleteWordFromLibrary(int index);
-
-/**
- * 重新加载 g_words 进度数组（词库修改后调用）
- */
-void reloadWords(void);
 
 #endif // WORDS_H

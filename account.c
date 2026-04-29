@@ -97,11 +97,11 @@ void Account_Init(void) {
         if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
         if (strlen(line) == 0) continue;
 
-        // 格式: username|passwordHash|createdTime|lastLoginTime
-        char* fields[4] = {NULL, NULL, NULL, NULL};
+        // 格式: username|passwordHash|createdTime|lastLoginTime|selectWordCorrect|selectWordTotal
+        char* fields[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
         int fieldIdx = 0;
         char* token = strtok(line, "|");
-        while (token != NULL && fieldIdx < 4) {
+        while (token != NULL && fieldIdx < 6) {
             fields[fieldIdx++] = token;
             token = strtok(NULL, "|");
         }
@@ -112,6 +112,8 @@ void Account_Init(void) {
             strncpy(u->passwordHash, fields[1], MAX_PASSWORD - 1);
             u->createdTime = (time_t)atol(fields[2]);
             u->lastLoginTime = (time_t)atol(fields[3]);
+            u->selectWordCorrect = (fieldIdx >= 5) ? atoi(fields[4]) : 0;
+            u->selectWordTotal = (fieldIdx >= 6) ? atoi(fields[5]) : 0;
             s->userCount++;
         }
     }
@@ -129,11 +131,13 @@ void Account_Save(void) {
 
     for (int i = 0; i < s->userCount; i++) {
         User* u = &s->users[i];
-        fprintf(fp, "%s|%s|%ld|%ld\n",
+        fprintf(fp, "%s|%s|%ld|%ld|%d|%d\n",
                 u->username,
                 u->passwordHash,
                 (long)u->createdTime,
-                (long)u->lastLoginTime);
+                (long)u->lastLoginTime,
+                u->selectWordCorrect,
+                u->selectWordTotal);
     }
 
     fclose(fp);

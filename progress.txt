@@ -1,5 +1,4 @@
-abandon|0|0|0
-ability|0|0|0
+ni|0|0|0
 absence|0|0|0
 absolute|0|0|0
 absorb|0|0|0

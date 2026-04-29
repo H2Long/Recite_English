@@ -11,6 +11,7 @@
 #include "fonts.h"
 #include "menu_callbacks.h"
 #include "account.h"
+#include "plan.h"
 #include "tree_menu.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,7 @@
 #define LEARN        (*AppState_GetLearnState())
 #define REVIEW       (*AppState_GetReviewState())
 #define TEST         (*AppState_GetTestState())
+#define SELECT_WORD  (*AppState_GetSelectWordState())
 
 // ============================================================================
 // 主程序入口
@@ -43,6 +45,7 @@ int main(void) {
     // --------------------------------------------------------------------
     loadWordsFromFile("./words.txt");  // 从文件加载单词数据
     Account_Init();                    // 初始化账号系统
+    Plan_Init();                       // 初始化学习计划
     initWords();                       // 初始化单词进度（加载学习进度）
     srand(time(NULL));                 // 初始化随机数种子
     loadFonts();                       // 加载中英文字体

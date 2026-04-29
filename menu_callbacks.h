@@ -38,11 +38,23 @@ void MenuHome_Show(void);
 void MenuLearn_Show(void);
 
 /**
- * 背单词模式
+ * 背单词模式（父页面 - 显示三个子模式入口）
+ */
+void MenuReviewRoot_Show(void);
+
+/**
+ * 卡片背单词（原闪卡复习）
  * 使用闪卡翻转学习：正面显示单词，背面显示释义
  * 认识3次后标记为"已掌握"
  */
-void MenuReview_Show(void);
+void MenuCardReview_Show(void);
+
+/**
+ * 选词背单词
+ * 显示汉语释义，从4个英文选项中选正确单词
+ * 按用户账号统计得分
+ */
+void MenuSelectWord_Show(void);
 
 /**
  * 测试模式
@@ -56,6 +68,17 @@ void MenuTest_Show(void);
  * 使用正则表达式或模糊搜索查找单词，显示详细信息
  */
 void MenuSearch_Show(void);
+
+/**
+ * 学习计划管理（父页面 - 包含计划和进度）
+ */
+void MenuPlanRoot_Show(void);
+
+/**
+ * 学习计划列表管理
+ * 创建、选择、删除学习计划
+ */
+void MenuPlanManager_Show(void);
 
 /**
  * 进度模式
@@ -74,6 +97,12 @@ void MenuSettings_Show(void);
  * 用户注册、登录、切换账号
  */
 void MenuAccount_Show(void);
+
+/**
+ * 词库管理页面
+ * 添加、编辑、删除单词
+ */
+void MenuWordManager_Show(void);
 
 /**
  * 登录页面

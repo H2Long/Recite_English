@@ -14,6 +14,8 @@ add_executable(main_c main.c
         config.h
         account.c
         account.h
+        plan.c
+        plan.h
         words.c
         words.h
         fonts.c

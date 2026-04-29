@@ -55,6 +55,16 @@ void AppState_Init(void) {
     g_app.search.searchResultCount = 0;
     memset(&g_app.search.searchBar, 0, sizeof(g_app.search.searchBar));
 
+    // 选词背单词模式状态初始化
+    g_app.selectWord.selectCount = 0;
+    g_app.selectWord.currentSelectIdx = 0;
+    g_app.selectWord.selectCorrect = 0;
+    g_app.selectWord.selectTotal = 0;
+    g_app.selectWord.selectedAnswer = -1;
+    g_app.selectWord.answerResult = -1;
+    g_app.selectWord.currentCorrectIdx = 0;
+    memset(g_app.selectWord.wrongOptionsUsed, 0, sizeof(g_app.selectWord.wrongOptionsUsed));
+
     // 绑定账号系统状态到 AppState
     Account_SetState(&g_app.account);
 }
@@ -128,6 +138,14 @@ TestState* AppState_GetTestState(void) {
 
 SearchState* AppState_GetSearchState(void) {
     return &g_app.search;
+}
+
+SelectWordState* AppState_GetSelectWordState(void) {
+    return &g_app.selectWord;
+}
+
+PlanState* AppState_GetPlanState(void) {
+    return &g_app.plan;
 }
 
 AccountState* AppState_GetAccountState(void) {

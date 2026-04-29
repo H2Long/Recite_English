@@ -11,6 +11,7 @@
 #include "tree_menu.h"
 #include "words.h"
 #include "account.h"
+#include "plan.h"
 #include "config.h"
 
 // ============================================================================
@@ -56,6 +57,19 @@ typedef struct {
     SearchBarState searchBar;        // 搜索栏状态
 } SearchState;
 
+// 选词背单词模式状态（看释义选单词）
+typedef struct {
+    int selectIndices[MAX_WORDS];    // 单词索引数组
+    int selectCount;                  // 题目总数
+    int currentSelectIdx;             // 当前题目索引
+    int selectCorrect;               // 正确数
+    int selectTotal;                 // 已答题总数
+    int selectedAnswer;             // 用户选择的答案
+    int answerResult;               // 答题结果（1正确0错误-1未答）
+    int currentCorrectIdx;          // 正确答案选项索引
+    bool wrongOptionsUsed[MAX_WORDS]; // 已用错误选项
+} SelectWordState;
+
 // ============================================================================
 // 应用状态结构体（统一管理所有状态）
 // ============================================================================
@@ -77,13 +91,17 @@ typedef struct {
     
     // 各模式状态
     LearnState learn;       // 学单词模式状态
-    ReviewState review;      // 背单词模式状态
+    ReviewState review;      // 背单词模式状态（卡片）
     TestState test;         // 测试模式状态
+    SelectWordState selectWord; // 选词背单词模式状态
     SearchState search;     // 查找单词模式状态
     
     // 账号系统
     AccountState account;   // 账号管理状态
     char loginMsg[128];      // 登录/注册提示信息
+    
+    // 学习计划
+    PlanState plan;          // 学习计划状态
 } AppState;
 
 // ============================================================================
@@ -133,11 +151,17 @@ TestState* AppState_GetTestState(void);
 // 获取查找单词状态指针
 SearchState* AppState_GetSearchState(void);
 
+// 获取选词背单词状态指针
+SelectWordState* AppState_GetSelectWordState(void);
+
 // 获取账号状态指针
 AccountState* AppState_GetAccountState(void);
 
 // 获取登录提示信息
 char* AppState_GetLoginMsg(void);
+
+// 获取学习计划状态指针
+PlanState* AppState_GetPlanState(void);
 
 // 获取/设置深色模式
 bool AppState_IsDarkMode(void);              // 获取当前是否为深色模式

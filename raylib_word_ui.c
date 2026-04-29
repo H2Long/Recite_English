@@ -702,12 +702,11 @@ bool UITextBox(UITextBoxState* state, Rectangle rect, UIStyle* style, UIState* u
             uistate->focusItem = id;
             state->hasFocus = true;
             state->cursor = utf8_strlen(state->buffer);
-        } else {
-            // 点击其他地方，清除焦点
-            if (uistate->focusItem == id) {
-                uistate->focusItem = 0;
-                state->hasFocus = false;
-            }
+        } else if (state->hasFocus) {
+            // 如果当前输入框有焦点但鼠标没点中它，清除焦点
+            // 注意：不能依赖 uistate->focusItem 比较，因为后续处理的
+            // 输入框会覆盖 uistate->focusItem 的值
+            state->hasFocus = false;
         }
     }
     

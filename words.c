@@ -11,7 +11,7 @@
 #include <ctype.h>
 
 // 动态单词库（支持从文件加载）
-static WordEntry* g_wordLibrary = NULL;
+WordEntry* g_wordLibrary = NULL;
 static int g_wordLibraryCapacity = 0;
 
 // 单词数据（含学习进度）
@@ -318,4 +318,91 @@ int searchWordsSimple(const char* query, int* results, int maxResults) {
     }
 
     return count;
+}
+// ============================================================================
+// 词库管理函数实现
+// ============================================================================
+
+bool saveWordsToFile(const char* filename) {
+    FILE* fp = fopen(filename, "w");
+    if (fp == NULL) {
+        printf("WARNING: Cannot save words to %s\n", filename);
+        return false;
+    }
+    for (int i = 0; i < g_wordCount; i++) {
+        fprintf(fp, "%s|%s|%s|%s|%s\n",
+                g_wordLibrary[i].word ? g_wordLibrary[i].word : "",
+                g_wordLibrary[i].phonetic ? g_wordLibrary[i].phonetic : "",
+                g_wordLibrary[i].definition ? g_wordLibrary[i].definition : "",
+                g_wordLibrary[i].example ? g_wordLibrary[i].example : "",
+                g_wordLibrary[i].exampleTranslation ? g_wordLibrary[i].exampleTranslation : "");
+    }
+    fclose(fp);
+    printf("INFO: Saved %d words to %s\n", g_wordCount, filename);
+    return true;
+}
+
+bool addWordToLibrary(const char* w, const char* ph, const char* def,
+                      const char* ex, const char* ext) {
+    if (w == NULL || strlen(w) == 0) return false;
+    if (g_wordCount >= MAX_WORDS + 200) return false;
+    if (g_wordCount >= g_wordLibraryCapacity) {
+        g_wordLibraryCapacity = g_wordLibraryCapacity == 0 ? 50 : g_wordLibraryCapacity * 2;
+        g_wordLibrary = (WordEntry*)realloc(g_wordLibrary, g_wordLibraryCapacity * sizeof(WordEntry));
+    }
+    g_wordLibrary[g_wordCount].word = strdup(w);
+    g_wordLibrary[g_wordCount].phonetic = strdup(ph ? ph : "");
+    g_wordLibrary[g_wordCount].definition = strdup(def ? def : "");
+    g_wordLibrary[g_wordCount].example = strdup(ex ? ex : "");
+    g_wordLibrary[g_wordCount].exampleTranslation = strdup(ext ? ext : "");
+    g_wordCount++;
+    saveWordsToFile("./words.txt");
+    return true;
+}
+
+bool editWordInLibrary(int idx, const char* w, const char* ph,
+                       const char* def, const char* ex, const char* ext) {
+    if (idx < 0 || idx >= g_wordCount || w == NULL || strlen(w) == 0) return false;
+    free((void*)g_wordLibrary[idx].word);
+    free((void*)g_wordLibrary[idx].phonetic);
+    free((void*)g_wordLibrary[idx].definition);
+    free((void*)g_wordLibrary[idx].example);
+    free((void*)g_wordLibrary[idx].exampleTranslation);
+    g_wordLibrary[idx].word = strdup(w);
+    g_wordLibrary[idx].phonetic = strdup(ph ? ph : "");
+    g_wordLibrary[idx].definition = strdup(def ? def : "");
+    g_wordLibrary[idx].example = strdup(ex ? ex : "");
+    g_wordLibrary[idx].exampleTranslation = strdup(ext ? ext : "");
+    saveWordsToFile("./words.txt");
+    return true;
+}
+
+bool deleteWordFromLibrary(int idx) {
+    if (idx < 0 || idx >= g_wordCount) return false;
+    free((void*)g_wordLibrary[idx].word);
+    free((void*)g_wordLibrary[idx].phonetic);
+    free((void*)g_wordLibrary[idx].definition);
+    free((void*)g_wordLibrary[idx].example);
+    free((void*)g_wordLibrary[idx].exampleTranslation);
+    for (int i = idx; i < g_wordCount - 1; i++) g_wordLibrary[i] = g_wordLibrary[i + 1];
+    g_wordCount--;
+    saveWordsToFile("./words.txt");
+    return true;
+}
+
+void reloadWords(void) {
+    int oldCnt = g_wordProgressCount;
+    g_wordProgressCount = 0;
+    for (int i = 0; i < g_wordCount && i < MAX_WORDS; i++) {
+        g_words[i].entry = g_wordLibrary[i];
+        g_words[i].progress.wordIndex = i;
+        if (i >= oldCnt) {
+            g_words[i].progress.knownCount = 0;
+            g_words[i].progress.unknownCount = 0;
+            g_words[i].progress.lastReview = 0;
+            g_words[i].progress.mastered = false;
+        }
+        g_wordProgressCount++;
+    }
+    printf("INFO: Reloaded %d words\n", g_wordProgressCount);
 }
