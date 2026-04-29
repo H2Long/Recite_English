@@ -17,15 +17,6 @@
 #define PLAN_NAME_MAX     64
 #define PLAN_FILE_DEFAULT "./plans.txt"
 
-/**
- * 设置计划文件路径（用于多用户切换）
- * @param path 计划文件路径
- */
-void Plan_SetFilePath(const char* path);
-
-/**
- * 初始化学习计划系统
-
 // ============================================================================
 // 数据结构
 // ============================================================================
@@ -65,6 +56,18 @@ typedef struct {
 // ============================================================================
 // 学习计划库公共接口
 // ============================================================================
+
+/**
+ * 设置计划状态指针（绑定到 AppState 的状态）
+ * @param state 外部 PlanState 指针
+ */
+void Plan_SetState(PlanState* state);
+
+/**
+ * 设置计划文件路径（用于多用户切换）
+ * @param path 计划文件路径
+ */
+void Plan_SetFilePath(const char* path);
 
 /**
  * 初始化学习计划系统
@@ -123,7 +126,6 @@ void Plan_CheckNewDay(void);
 
 /**
  * 获取今日剩余应学单词数
- * @return 剩余数，无激活计划返回 0
  */
 int Plan_GetRemainingToday(void);
 

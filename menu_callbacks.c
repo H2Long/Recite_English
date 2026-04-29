@@ -942,6 +942,15 @@ void MenuPlanManager_Show(void) {
         DrawRectangleRec(bar, Fade(STYLE->theme.textSecondary, 0.2f));
         DrawRectangleRec((Rectangle){bar.x, bar.y, bar.width * dayProg, bar.height},
                          isActive ? STYLE->theme.primary : STYLE->theme.success);
+
+        // 删除按钮（红色 ✕）
+        Rectangle delBtn = {item.x + item.width - 28, item.y + 4, 24, 22};
+        bool delHover = CheckCollisionPointRec(UI_STATE->mousePos, delBtn);
+        if (delHover) DrawRectangleRounded(delBtn, 0.2f, 4, Fade(RED, 0.2f));
+        DrawTextAuto(u8"✕", (Vector2){delBtn.x + 6, delBtn.y + 2}, 16, 1, delHover ? RED : STYLE->theme.textSecondary);
+        if (delHover && UI_STATE->mouseReleased) {
+            Plan_Delete(i);
+        }
     }
     UIEndScrollView(&sv, STYLE, UI_STATE);
     planListScroll = sv.scrollOffset.y;

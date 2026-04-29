@@ -67,6 +67,9 @@ void AppState_Init(void) {
 
     // 绑定账号系统状态到 AppState
     Account_SetState(&g_app.account);
+
+    // 绑定学习计划状态到 AppState
+    Plan_SetState(&g_app.plan);
 }
 
 void AppState_Reset(void) {

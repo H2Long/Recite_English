@@ -560,6 +560,66 @@ if (UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 302)) {
 
 ---
 
+### 经验 12：计划数据不显示 — 内部 static 与 AppState 分离（复现）
+
+**场景**：在计划管理页面创建了计划，页面显示"暂无计划"，计划列表始终为空。
+
+**诊断过程**：
+
+这个 Bug 与「经验 9：账号数据不显示」**完全一样**。代码结构也完全一致：
+
+```c
+// account.c 的旧代码（经验 9 已修复）
+static AccountState g_accountState = {0};       // 内部状态
+// 所有 Account_xxx 操作的是 g_accountState
+
+// plan.c 的新代码（犯同样的错误！）
+static PlanState g_planState = {0};             // 内部状态
+// 所有 Plan_xxx 操作的是 g_planState
+```
+
+而 UI 页面访问的是 `g_app.plan`（`AppState` 的字段）：
+
+```c
+// menu_callbacks.c
+#define PLAN_STATE (*AppState_GetPlanState())   // → &g_app.plan
+```
+
+**根因**：经验 9 已经修过一次 `account.c`，但写 `plan.c` 时忘了用同样的模式，又写了 `static PlanState g_planState`。
+
+**修复**：与 account.c 完全相同的解决方案：
+
+```c
+// plan.c — 添加状态绑定
+static PlanState* g_pPlanState = NULL;
+static PlanState g_planInternal;               // 备用内部状态
+
+void Plan_SetState(PlanState* state) {
+    g_pPlanState = state;                      // 绑定到外部
+}
+
+static PlanState* getPlanState(void) {
+    return g_pPlanState ? g_pPlanState : &g_planInternal;
+}
+
+// 所有函数通过 getPlanState() 获取状态
+void Plan_Init(void) {
+    PlanState* s = getPlanState();             // ← 关键
+    s->planCount = 0;
+    // ...
+}
+```
+
+```c
+// app_state.c — 初始化时绑定
+void AppState_Init(void) {
+    // ...
+    Plan_SetState(&g_app.plan);                // 绑定到 AppState
+}
+```
+
+**教训**：相同的 Bug 会以相同的形式在不同的模块中重现。写新模块时，要主动参考已有模块的修复经验，而不是每次都重新发明解决方案。在项目中建立"模式模板"可以避免这类重复 Bug。
+
 ## 七、最终经验总结表
 
 | # | 问题 | 根因 | 修复方案 | 核心教训 |
@@ -572,6 +632,8 @@ if (UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 302)) {
 | 6 | 账号数据不显示 | 内部 `static` 与 `AppState` 不同步 | 状态绑定 `Account_SetState` | 两处独立内存的同步问题 |
 | 7 | 编译报错 | 字符串串联遗漏分号 | 最后一行加分号 | 编译器报错行与实际错误行不同 |
 | 8 | 登录页面闪灭 | 直接调用渲染未切换菜单 | 子页面状态变量 | 菜单导航必须走 `CURRENT_MENU` |
+| 9 | 光标位置不准 | 单一字体测量混合文本 | 改用 `MeasureTextAuto` | 多字体渲染必须逐字符测量 |
+| 10 | 计划数据不显示 | 内部 `static` 与 `AppState` 不同步（同 #6） | 状态绑定 `Plan_SetState` | 相同 Bug 会在不同模块复现 |
 
 ## 八、调试方法论
 
