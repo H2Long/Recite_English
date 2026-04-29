@@ -11,6 +11,7 @@ set(CMAKE_GENERATOR ninja)
 add_executable(main_c main.c
         app_state.c
         app_state.h
+        config.h
         words.c
         words.h
         fonts.c

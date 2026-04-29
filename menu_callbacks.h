@@ -13,18 +13,12 @@
 #include "words.h"
 #include "fonts.h"
 #include "app_state.h"
+#include "config.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-// ============================================================================
-// 窗口尺寸宏定义（与 app_state.h 保持一致）
-// ============================================================================
-
-#define SCREEN_WIDTH 1600
-#define SCREEN_HEIGHT 1000
 
 // ============================================================================
 // 菜单回调函数声明
