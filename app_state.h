@@ -58,6 +58,9 @@ typedef struct {
     // UI 交互状态
     UIState uiState;
     
+    // 主题设置
+    bool isDarkMode;          // 是否为深色模式
+    
     // 菜单系统
     MENU* rootMenu;          // 根菜单节点
     MENU* currentMenu;       // 当前显示的菜单
@@ -112,5 +115,10 @@ ReviewState* AppState_GetReviewState(void);
 
 // 获取测试状态指针
 TestState* AppState_GetTestState(void);
+
+// 获取/设置深色模式
+bool AppState_IsDarkMode(void);              // 获取当前是否为深色模式
+void AppState_ToggleDarkMode(void);          // 切换深色/浅色模式
+void AppState_SetDarkMode(bool isDark);     // 设置深色模式
 
 #endif // APP_STATE_H

@@ -116,3 +116,20 @@ ReviewState* AppState_GetReviewState(void) {
 TestState* AppState_GetTestState(void) {
     return &g_app.test;
 }
+
+// ============================================================================
+// 主题管理函数
+// ============================================================================
+
+bool AppState_IsDarkMode(void) {
+    return g_app.isDarkMode;
+}
+
+void AppState_SetDarkMode(bool isDark) {
+    g_app.isDarkMode = isDark;
+    g_app.style.theme = isDark ? UIThemeDark() : UIThemeLight();
+}
+
+void AppState_ToggleDarkMode(void) {
+    AppState_SetDarkMode(!g_app.isDarkMode);
+}

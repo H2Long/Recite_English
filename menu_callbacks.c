@@ -634,6 +634,68 @@ void MenuProgress_Show(void) {
 }
 
 // ============================================================================
+// 设置页面
+// ============================================================================
+
+/**
+ * 设置页面
+ * 提供主题切换（深色/浅色模式）等设置选项
+ */
+void MenuSettings_Show(void) {
+    static bool lastDarkMode = false;  // 记录上次的模式状态
+    
+    Rectangle contentRect = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 30, 50);
+
+    // 页面标题
+    Rectangle titleRect = UILayoutNext(&layout, -1, 60);
+    const char* title = u8"设置";
+    Vector2 tSize = MeasureTextAuto(title, 42, 1);
+    DrawTextAuto(title, (Vector2){contentRect.x + 50, titleRect.y}, 42, 1, STYLE->theme.textPrimary);
+
+    // 设置面板
+    Rectangle panelRect = UILayoutNext(&layout, -1, -1);
+    DrawRectangleRounded(panelRect, 0.1f, 12, STYLE->theme.panelBg);
+
+    UILayout settingsLayout = UIBeginLayout(panelRect, UI_DIR_VERTICAL, 20, 30);
+
+    // --------------------------------------------------------------------
+    // 主题设置
+    // --------------------------------------------------------------------
+    Rectangle themeSection = UILayoutNext(&settingsLayout, -1, 120);
+
+    // 主题标题
+    const char* themeTitle = u8"主题设置";
+    DrawTextAuto(themeTitle, (Vector2){themeSection.x + 30, themeSection.y + 10}, 28, 1, STYLE->theme.textPrimary);
+
+    // 深色模式复选框
+    Rectangle checkboxRect = {themeSection.x + 30, themeSection.y + 55, 300, 40};
+    if (UICheckbox(u8"深色模式", checkboxRect, &g_app.isDarkMode, STYLE, UI_STATE)) {
+        // 复选框状态改变时，实时更新主题
+        AppState_SetDarkMode(g_app.isDarkMode);
+    }
+
+    // 主题切换提示
+    Rectangle hintRect = {themeSection.x + 30, themeSection.y + 100, 500, 30};
+    const char* hint = AppState_IsDarkMode() ? u8"当前：深色模式" : u8"当前：浅色模式";
+    DrawTextAuto(hint, (Vector2){hintRect.x, hintRect.y}, 18, 1, STYLE->theme.textSecondary);
+
+    // --------------------------------------------------------------------
+    // 关于信息
+    // --------------------------------------------------------------------
+    Rectangle aboutSection = UILayoutNext(&settingsLayout, -1, 120);
+
+    // 关于标题
+    const char* aboutTitle = u8"关于";
+    DrawTextAuto(aboutTitle, (Vector2){aboutSection.x + 30, aboutSection.y + 10}, 28, 1, STYLE->theme.textPrimary);
+
+    // 关于内容
+    Rectangle aboutContent = {aboutSection.x + 30, aboutSection.y + 50, 600, 60};
+    const char* aboutText = u8"背单词软件 v1.3.0\n基于 raylib 构建，支持中英文混合显示";
+    UIDrawTextRec(aboutText, aboutContent, 18, 1, true, STYLE->theme.textSecondary);
+}
+
+// ============================================================================
 // 菜单系统辅助函数
 // ============================================================================
 
@@ -647,6 +709,7 @@ void InitMenuTree(void) {
     MENU* menuReview = CreatMenuTreeNode(NULL, MenuReview_Show);
     MENU* menuTest = CreatMenuTreeNode(NULL, MenuTest_Show);
     MENU* menuProgress = CreatMenuTreeNode(NULL, MenuProgress_Show);
+    MENU* menuSettings = CreatMenuTreeNode(NULL, MenuSettings_Show);
 
     // 创建根菜单（主页面）
     g_app.rootMenu = CreatMenuTreeNode(NULL, MenuHome_Show);
@@ -656,6 +719,7 @@ void InitMenuTree(void) {
     ConnectMenuTree(g_app.rootMenu, menuReview);
     ConnectMenuTree(g_app.rootMenu, menuTest);
     ConnectMenuTree(g_app.rootMenu, menuProgress);
+    ConnectMenuTree(g_app.rootMenu, menuSettings);
 
     // 初始化菜单栈
     StackInit(&g_app.menuStack);
@@ -694,6 +758,7 @@ const char* GetMenuItemText(MENU* menu) {
     if (menu->show == MenuReview_Show) return u8"背单词";
     if (menu->show == MenuTest_Show) return u8"测试";
     if (menu->show == MenuProgress_Show) return u8"学习进度";
+    if (menu->show == MenuSettings_Show) return u8"设置";
     return "";
 }
 
