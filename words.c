@@ -22,8 +22,18 @@ int g_wordCount = 0;
 // 学单词模式滚动偏移
 float g_learnScrollOffset = 0;
 
-// 进度文件路径（用于持久化存储学习进度）
-static const char* g_progressFile = "./progress.txt";
+// 进度文件路径（支持多用户切换，默认为 progress.txt）
+static char g_progressFilePath[256] = "./progress.txt";
+
+/**
+ * 设置进度文件路径（用于多用户切换）
+ * @param path 新的进度文件路径
+ */
+void setProgressFilePath(const char* path) {
+    strncpy(g_progressFilePath, path, sizeof(g_progressFilePath) - 1);
+    g_progressFilePath[sizeof(g_progressFilePath) - 1] = '\0';
+    printf("INFO: Progress file set to: %s\n", g_progressFilePath);
+}
 
 // Fisher-Yates 洗牌算法：随机打乱数组顺序
 void shuffleArray(int *array, int count) {
@@ -145,9 +155,9 @@ void initWords(void) {
 // 格式：word|knownCount|unknownCount|lastReview（时间戳）
 // 每次背单词操作后自动调用
 void saveProgress(void) {
-    FILE* fp = fopen(g_progressFile, "w");
+    FILE* fp = fopen(g_progressFilePath, "w");
     if (fp == NULL) {
-        printf("WARNING: Cannot save progress to: %s\n", g_progressFile);
+        printf("WARNING: Cannot save progress to: %s\n", g_progressFilePath);
         return;
     }
     
@@ -160,14 +170,14 @@ void saveProgress(void) {
     }
     
     fclose(fp);
-    printf("INFO: Progress saved to %s\n", g_progressFile);
+    printf("INFO: Progress saved to %s\n", g_progressFilePath);
 }
 
 // 从文件加载学习进度
 // 程序启动时调用，恢复之前的学习状态
 // 认识次数>=3的单词自动标记为"已掌握"
 void loadProgress(void) {
-    FILE* fp = fopen(g_progressFile, "r");
+    FILE* fp = fopen(g_progressFilePath, "r");
     if (fp == NULL) {
         printf("INFO: No progress file found, starting fresh\n");
         return;
@@ -208,7 +218,7 @@ void loadProgress(void) {
     }
     
     fclose(fp);
-    printf("INFO: Progress loaded from %s\n", g_progressFile);
+    printf("INFO: Progress loaded from %s\n", g_progressFilePath);
 }
 
 // 清除所有学习进度

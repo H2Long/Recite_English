@@ -10,6 +10,7 @@
 #include "raylib_word_ui.h"
 #include "tree_menu.h"
 #include "words.h"
+#include "account.h"
 #include "config.h"
 
 // ============================================================================
@@ -79,6 +80,10 @@ typedef struct {
     ReviewState review;      // 背单词模式状态
     TestState test;         // 测试模式状态
     SearchState search;     // 查找单词模式状态
+    
+    // 账号系统
+    AccountState account;   // 账号管理状态
+    char loginMsg[128];      // 登录/注册提示信息
 } AppState;
 
 // ============================================================================
@@ -127,6 +132,12 @@ TestState* AppState_GetTestState(void);
 
 // 获取查找单词状态指针
 SearchState* AppState_GetSearchState(void);
+
+// 获取账号状态指针
+AccountState* AppState_GetAccountState(void);
+
+// 获取登录提示信息
+char* AppState_GetLoginMsg(void);
 
 // 获取/设置深色模式
 bool AppState_IsDarkMode(void);              // 获取当前是否为深色模式

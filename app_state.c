@@ -4,6 +4,7 @@
 // ============================================================================
 
 #include "app_state.h"
+#include "account.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -53,6 +54,9 @@ void AppState_Init(void) {
     memset(g_app.search.searchInput, 0, sizeof(g_app.search.searchInput));
     g_app.search.searchResultCount = 0;
     memset(&g_app.search.searchBar, 0, sizeof(g_app.search.searchBar));
+
+    // 绑定账号系统状态到 AppState
+    Account_SetState(&g_app.account);
 }
 
 void AppState_Reset(void) {
@@ -124,6 +128,14 @@ TestState* AppState_GetTestState(void) {
 
 SearchState* AppState_GetSearchState(void) {
     return &g_app.search;
+}
+
+AccountState* AppState_GetAccountState(void) {
+    return &g_app.account;
+}
+
+char* AppState_GetLoginMsg(void) {
+    return g_app.loginMsg;
 }
 
 // ============================================================================

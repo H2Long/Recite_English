@@ -77,14 +77,18 @@ void initWords(void);
 void shuffleArray(int *array, int count);
 
 /**
+ * 设置进度文件路径（用于多用户切换）
+ * @param path 进度文件路径
+ */
+void setProgressFilePath(const char* path);
+
+/**
  * 保存学习进度到文件
- * 文件路径：./progress.txt
  */
 void saveProgress(void);
 
 /**
  * 从文件加载学习进度
- * 文件路径：./progress.txt
  */
 void loadProgress(void);
 

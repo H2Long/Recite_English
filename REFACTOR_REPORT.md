@@ -10,13 +10,56 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | raylib-word |
-| 当前版本 | v1.5.0 |
+| 当前版本 | v2.0.0 |
 | 创建日期 | 2025-01-26 |
 | 最近更新 | 2026-04-29 |
 
 ---
 
 ## 更新日志
+
+### v2.0.0 (2026-04-29) - 账号管理系统
+
+#### 新增内容
+
+1. **独立账号管理库** - `account.c` / `account.h`
+   - 独立模块，可脱离主程序单独编译使用
+   - 提供完整的用户管理 API：`Account_Init`、`Account_Register`、`Account_Login`、`Account_Logout`
+   - 用户数据持久化存储于 `accounts.txt`（管道分隔格式）
+   - 密码使用 djb2 哈希存储，支持最多 50 个用户
+
+2. **多用户学习进度隔离** - `words.c`
+   - 新增 `setProgressFilePath()` 函数，支持动态切换进度文件
+   - 每用户独立进度文件：`progress_<username>.txt`
+   - 登录后自动加载对应用户进度，登出恢复默认
+
+3. **账号管理 UI** - `menu_callbacks.c`
+   - **账号页面** `MenuAccount_Show()`：显示用户信息、注册时间、登出/切换账号
+   - **登录页面** `MenuLogin_Show()`：用户名/密码输入、登录按钮、跳转注册
+   - **注册页面** `MenuRegister_Show()`：用户名/密码/确认密码输入、注册按钮
+   - 登录/注册提示信息反馈
+
+4. **导航菜单扩展** - `tree_menu.h`
+   - `MAX_CHILD_NUM` 从 5 增加到 8
+   - 侧边导航新增"账号管理"菜单项
+
+#### 文件清单
+
+| 文件 | 类型 | 说明 |
+|------|------|------|
+| `account.h` | 新增 | 账号库头文件，定义 User/AccountState 结构和公共 API |
+| `account.c` | 新增 | 账号库实现，用户注册/登录/登出/数据持久化 |
+| `app_state.h` | 修改 | 添加 AccountState 字段和访问器声明 |
+| `app_state.c` | 修改 | 添加账号状态访问器实现 |
+| `words.h` | 修改 | 添加 setProgressFilePath 声明 |
+| `words.c` | 修改 | 动态进度文件路径支持 |
+| `menu_callbacks.c` | 修改 | 新增三个账号页面函数 |
+| `menu_callbacks.h` | 修改 | 新增账号页面函数声明 |
+| `main.c` | 修改 | 添加 Account_Init 调用 |
+| `CMakeLists.txt` | 修改 | 添加 account.c/h |
+| `tree_menu.h` | 修改 | MAX_CHILD_NUM 5→8 |
+
+---
 
 ### v1.5.0 (2026-04-29) - 退格键支持与光标修正
 

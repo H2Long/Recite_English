@@ -10,6 +10,8 @@
 #include "words.h"
 #include "fonts.h"
 #include "menu_callbacks.h"
+#include "account.h"
+#include "tree_menu.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +42,8 @@ int main(void) {
     // 初始化阶段
     // --------------------------------------------------------------------
     loadWordsFromFile("./words.txt");  // 从文件加载单词数据
-    initWords();                       // 初始化单词进度
+    Account_Init();                    // 初始化账号系统
+    initWords();                       // 初始化单词进度（加载学习进度）
     srand(time(NULL));                 // 初始化随机数种子
     loadFonts();                       // 加载中英文字体
     UISetFonts(g_mergedFont, g_englishFont);  // 设置 UI 使用的字体
@@ -101,6 +104,38 @@ int main(void) {
         Vector2 titleSize = MeasureTextAuto(topTitle, 40, 1);
         DrawTextAuto(topTitle, (Vector2){SCREEN_WIDTH/2 - titleSize.x/2, 8}, 40, 1, STYLE->theme.primary);
 
+        // --------------------------------------------------------------------
+        // 右上角用户信息模块
+        // --------------------------------------------------------------------
+        Rectangle userInfoRect = {SCREEN_WIDTH - 210, 12, 200, 36};
+        bool hoverUser = CheckCollisionPointRec(UI_STATE->mousePos, userInfoRect);
+        if (hoverUser) {
+            DrawRectangleRounded(userInfoRect, 0.2f, 8, Fade(STYLE->theme.primary, 0.15f));
+        }
+        DrawRectangleRoundedLines(userInfoRect, 0.2f, 8, Fade(STYLE->theme.textSecondary, 0.3f));
+
+        const char* userText;
+        Color userColor;
+        if (Account_IsLoggedIn()) {
+            userText = Account_GetCurrentUser();
+            userColor = STYLE->theme.primary;
+        } else {
+            userText = u8"未登录";
+            userColor = STYLE->theme.textSecondary;
+        }
+        Vector2 userTextSize = MeasureTextAuto(userText, 22, 1);
+        DrawTextAuto(userText,
+                     (Vector2){userInfoRect.x + userInfoRect.width/2 - userTextSize.x/2,
+                               userInfoRect.y + (userInfoRect.height - userTextSize.y)/2},
+                     22, 1, userColor);
+
+        // 点击跳转到账号管理页面
+        if (hoverUser && UI_STATE->mouseReleased && g_accountMenuNode != NULL) {
+            StackPush(AppState_GetMenuStack(), CURRENT_MENU);
+            CURRENT_MENU = g_accountMenuNode;
+        }
+
+        // --------------------------------------------------------------------
         // 绘制左侧树形导航菜单
         Rectangle menuRect = {10, 70, 230, SCREEN_HEIGHT - 80};
         DrawTreeMenu(menuRect);

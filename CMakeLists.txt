@@ -12,6 +12,8 @@ add_executable(main_c main.c
         app_state.c
         app_state.h
         config.h
+        account.c
+        account.h
         words.c
         words.h
         fonts.c

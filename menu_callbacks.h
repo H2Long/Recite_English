@@ -69,6 +69,24 @@ void MenuProgress_Show(void);
  */
 void MenuSettings_Show(void);
 
+/**
+ * 账号管理页面
+ * 用户注册、登录、切换账号
+ */
+void MenuAccount_Show(void);
+
+/**
+ * 登录页面
+ * 用户登录表单
+ */
+void MenuLogin_Show(void);
+
+/**
+ * 注册页面
+ * 新用户注册表单
+ */
+void MenuRegister_Show(void);
+
 // ============================================================================
 // 菜单系统辅助函数
 // ============================================================================
@@ -97,5 +115,8 @@ const char* GetMenuItemText(MENU* menu);
  * @param menuRect 菜单区域
  */
 void DrawTreeMenu(Rectangle menuRect);
+
+// 账号菜单节点（供外部页面点击跳转使用）
+extern MENU* g_accountMenuNode;
 
 #endif // MENU_CALLBACKS_H
