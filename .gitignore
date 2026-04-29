@@ -27,3 +27,6 @@ Testing/
 
 # 进度文件（可选，是否需要提交）
 # progress.txt
+cmake-build-debug/
+*.o
+*.a

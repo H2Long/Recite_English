@@ -1,6 +1,7 @@
 // ============================================================================
 // 菜单回调函数头文件
-// 功能：声明各菜单页面的显示函数和全局变量
+// 功能：声明各菜单页面的显示函数
+// 重构后：通过 AppState 统一访问状态，不再使用散落的全局变量
 // ============================================================================
 
 #ifndef MENU_CALLBACKS_H
@@ -11,6 +12,7 @@
 #include "tree_menu.h"
 #include "words.h"
 #include "fonts.h"
+#include "app_state.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,50 +20,11 @@
 #include <time.h>
 
 // ============================================================================
-// 窗口尺寸宏定义
-// 注意：修改这些值会影响所有页面的布局
+// 窗口尺寸宏定义（与 app_state.h 保持一致）
 // ============================================================================
 
-#define SCREEN_WIDTH 1600   // 窗口宽度（像素）
-#define SCREEN_HEIGHT 1000  // 窗口高度（像素）
-
-// ============================================================================
-// 外部全局变量声明（由 main.c 提供）
-// ============================================================================
-
-// UI 样式和状态
-extern UIStyle g_style;       // UI 主题样式（颜色、字体大小等）
-extern UIState g_uiState;     // UI 交互状态（鼠标位置、按键状态等）
-
-// 菜单系统
-extern MENU* g_rootMenu;       // 根菜单节点
-extern MENU* g_currentMenu;     // 当前显示的菜单
-extern MenuStack g_menuStack;   // 菜单栈（用于"返回"功能）
-
-// 学单词模式状态
-extern int g_learnIndex;               // 当前选中的单词索引
-extern bool g_learnFilterUnknown;      // 是否只显示未掌握的单词
-extern float g_learnScrollOffset;      // 单词列表滚动位置
-
-// 背单词模式（闪卡）状态
-extern int g_reviewIndices[MAX_WORDS];        // 复习单词的索引数组
-extern int g_reviewCount;                     // 待复习单词数量
-extern int g_currentReviewIdx;                // 当前复习到第几个
-extern CardFace g_flashcardFace;              // 闪卡当前显示正面还是背面
-extern float g_flashcardAnimTime;             // 闪卡翻转动画时间
-extern int g_knownInSession;                  // 本轮认识的数量
-extern int g_unknownInSession;                 // 本轮不认识的的数量
-
-// 测试模式状态
-extern int g_testIndices[MAX_WORDS];           // 测试单词的索引数组
-extern int g_testCount;                        // 测试题总数
-extern int g_currentTestIdx;                   // 当前测试到第几题
-extern int g_testCorrect;                      // 正确答案数
-extern int g_testTotal;                        // 已答题总数
-extern int g_selectedAnswer;                   // 用户选择的答案
-extern int g_answerResult;                     // 答题结果（1=正确，0=错误，-1=未答）
-extern int g_currentCorrectIdx;                // 正确答案的选项索引
-extern bool g_wrongOptionsUsed[MAX_WORDS];     // 标记已使用的错误选项
+#define SCREEN_WIDTH 1600
+#define SCREEN_HEIGHT 1000
 
 // ============================================================================
 // 菜单回调函数声明
