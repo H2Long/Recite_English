@@ -1,0 +1,29 @@
+# 编译产物
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+main_c
+
+# CMake 构建目录
+cmake-build-debug/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build.ninja
+*.cmake
+
+# 测试日志
+Testing/
+
+# 临时文件
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 进度文件（可选，是否需要提交）
+# progress.txt
