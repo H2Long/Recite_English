@@ -108,25 +108,49 @@ static int get_today_date(void) {
 // 公共接口实现
 // ============================================================================
 
+/**
+ * Plan_Init - 初始化学习计划系统
+ *
+ * 执行流程：
+ *   1. 重置状态：清空计划列表，取消激活
+ *   2. 尝试打开计划文件（g_planFilePath）
+ *   3. 文件不存在 → 添加 4 个默认计划并保存到文件
+ *   4. 文件存在 → 逐行解析，每行恢复一个 LearningPlan
+ *      文件格式：name|daily|totalDays|currentDay|createdAt|lastStudyDate|studiedToday|isActive
+ *      第 8 个字段 isActive=1 表示该计划是激活状态
+ *
+ * 注意：
+ *   - 文件可能来自多用户切换（Plan_SetFilePath 后调用 Plan_Init）
+ *   - 旧格式文件可能只有前 3 个字段，后 5 个字段用默认值
+ *   - 此函数会覆盖内存中所有现有计划数据
+ */
 void Plan_Init(void) {
-    getPlanState()->planCount = 0;
-    getPlanState()->activePlanIndex = -1;
+    // ---- 步骤1：重置状态 ----
+    getPlanState()->planCount = 0;           // 清空计划列表
+    getPlanState()->activePlanIndex = -1;    // 取消任何激活计划
 
+    // ---- 步骤2：打开文件 ----
     FILE* fp = fopen(g_planFilePath, "r");
     if (fp == NULL) {
+        // 文件不存在（首次运行或新用户）→ 添加默认计划
         printf("INFO: No plan file found, adding default plans\n");
-        Plan_AddDefaults();
-        Plan_Save();
+        Plan_AddDefaults();  // 添加"一周入门"等 4 个默认计划
+        Plan_Save();         // 保存到文件
         return;
     }
 
+    // ---- 步骤3：逐行解析 ----
     char line[256];
     while (fgets(line, sizeof(line), fp)) {
+        // 去除行尾换行符（fgets 会保留 '\n'）
         size_t len = strlen(line);
         if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
-        if (strlen(line) == 0) continue;
+        if (strlen(line) == 0) continue;  // 跳过空行
 
-        // format: name|daily|totalDays|currentDay|createdAt|lastStudyDate|studiedToday|isActive
+        /*
+         * 每行格式：name|daily|totalDays|currentDay|createdAt|lastStudyDate|studiedToday|isActive
+         * 使用 strtok 按 '|' 分割。注意 strtok 非线程安全（本应用为单线程，可接受）
+         */
         char* fields[8] = {NULL};
         int fieldIdx = 0;
         char* token = strtok(line, "|");
@@ -134,6 +158,7 @@ void Plan_Init(void) {
             fields[fieldIdx++] = token;
             token = strtok(NULL, "|");
         }
+        // 至少需要前 3 个字段（name/daily/totalDays），且不超过最大计划数
         if (fieldIdx >= 3 && getPlanState()->planCount < MAX_PLANS) {
             LearningPlan* p = &getPlanState()->plans[getPlanState()->planCount];
             strncpy(p->name, fields[0], PLAN_NAME_MAX - 1);
@@ -143,6 +168,7 @@ void Plan_Init(void) {
             p->createdAt = fieldIdx >= 5 ? (time_t)atol(fields[4]) : time(NULL);
             p->lastStudyDate = fieldIdx >= 6 ? (time_t)atol(fields[5]) : 0;
             p->studiedToday = fieldIdx >= 7 ? atoi(fields[6]) : 0;
+            // 第 8 个字段 isActive: 1 表示该计划在保存时是激活状态
             if (fieldIdx >= 8 && atoi(fields[7]) == 1) {
                 getPlanState()->activePlanIndex = getPlanState()->planCount;
             }
@@ -227,19 +253,44 @@ void Plan_AddStudiedToday(int count) {
     }
 }
 
+/**
+ * Plan_CheckNewDay - 检查是否是新的一天（跨日自动推进）
+ *
+ * 这是学习计划自动化的核心逻辑。每次应用启动或切换计划时调用。
+ * 逻辑：
+ *   1. 获取今天的日期（yyyymmdd 格式整数）
+ *   2. 与 lastStudyDate（上次学习日期）对比
+ *   3. 如果不同 → 说明到了新一天，执行"跨日操作"：
+ *      a. currentDay++（推进到计划的第 N+1 天）
+ *         ⚠️ 注意：如果 lastStudyDate == 0（从未学习过），
+ *            说明计划刚创建，不推进天数（currentDay 保持 0）。
+ *      b. studiedToday = 0（重置今日已学单词数）
+ *      c. lastStudyDate = today（更新学习日期）
+ *      d. Plan_Save()（持久化变更）
+ *   4. 如果相同 → 还是同一天，什么也不做
+ *
+ * @see Plan_AddStudiedToday() 用于增加今日已学计数
+ */
 void Plan_CheckNewDay(void) {
     LearningPlan* p = Plan_GetActive();
-    if (p == NULL) return;
+    if (p == NULL) return;  // 没有激活的计划，无需检查
+
     int today = get_today_date();
     if (p->lastStudyDate != today) {
-        // 新的一天
+        /*
+         * 今天与上次学习日期不同 → 新的一天
+         * lastStudyDate > 0 确保计划不是刚创建的
+         * （新创建的计划 lastStudyDate 也被设为今天，
+         * 所以这个分支通常在新创建的下一天才会触发）
+         */
         if (p->lastStudyDate > 0) {
-            p->currentDay++;
+            p->currentDay++;  // 计划推进一天
         }
-        p->studiedToday = 0;
-        p->lastStudyDate = today;
-        Plan_Save();
+        p->studiedToday = 0;        // 重置今日学习计数
+        p->lastStudyDate = today;   // 更新最后学习日期
+        Plan_Save();                // 保存变更
     }
+    // 同一天 → 不做任何操作，studiedToday 继续累加
 }
 
 int Plan_GetRemainingToday(void) {
