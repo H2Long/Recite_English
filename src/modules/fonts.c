@@ -1,3 +1,29 @@
+// ============================================================================
+// 字体渲染模块
+// 功能：加载管理四种字体（中文/英文/IPA/合并），实现混合文本逐字符渲染
+//
+// 设计决策：
+//   维护四种独立的字体句柄，而不是使用单一合并字体。原因是：
+//   1. 中文字体文件大(~16MB)，合入英文字体会导致不必要的内存占用
+//   2. 英文字体（如 DejaVu Sans）对 ASCII 和拉丁字符渲染效果更好
+//   3. 不同平台字体路径不同，分开加载可以逐个尝试直到成功
+//
+// 混合文本渲染策略 (DrawTextAuto/MeasureTextAuto)：
+//   遍历文本中的每个 UTF-8 字符，根据其 Unicode 码点范围选择字体：
+//   - 0x0000 ~ 0x007F (ASCII) → g_englishFont
+//   - 0x00A0 ~ 0x1EFF (Latin/IPA 扩展) → g_latinFont
+//   - 其它（中文等 CJK 字符）→ g_mergedFont
+//
+// 字体加载优先级 (loadFonts)：
+//   1. data/fonts/ 下的打包字体（保证跨平台一致性）
+//   2. 各平台系统字体（作为后备）
+//   3. raylib 内置默认字体（最终回退）
+//
+// 依赖：
+//   - fonts.h: 函数声明
+//   - words.h: 引用 g_words 以提取中文字符预加载字形
+// ============================================================================
+
 #include "fonts.h"
 #include "words.h"
 #include <stdio.h>
@@ -6,10 +32,10 @@
 #include <time.h>
 
 // 字体
-Font g_chineseFont;
-Font g_englishFont;
-Font g_latinFont;
-Font g_mergedFont;
+Font g_chineseFont;   // 中文字体（NotoSansCJK.otf 等），负责渲染所有 CJK 字符
+Font g_englishFont;   // 英文字体（DejaVu Sans 等），负责渲染 ASCII 字符
+Font g_latinFont;     // IPA/音标字体（IPA 日文字体或 DejaVu），负责渲染 IPA 扩展字符
+Font g_mergedFont;    // 合并字体（基于中文字体合并 IPA 和 ASCII 字形），用于 UI 统一绘制
 
 // ============================================================================
 // 字体管理模块

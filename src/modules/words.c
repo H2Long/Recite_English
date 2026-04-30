@@ -1,6 +1,31 @@
 // ============================================================================
 // 单词管理模块
 // 功能：单词加载、进度管理、持久化存储
+//
+// 核心数据结构：
+//   本模块管理两组数据：
+//   1. g_wordLibrary (WordEntry* 动态数组) — 从 words.txt 加载的原始词库，
+//      支持运行时增删改（词库管理功能）
+//   2. g_words[100] (WordWithProgress 定长数组) — 带学习进度的单词数组，
+//      所有学习模式（学单词/背单词/测试）都基于此数组
+//
+// 数据流：
+//   words.txt → loadWordsFromFile() → g_wordLibrary
+//                                   → initWords() → g_words[100]
+//                                                      ↓
+//   progress.txt ← saveProgress()  ← 学习进度更新
+//
+// 进度保存格式 (progress.txt)：
+//   word|knownCount|unknownCount|lastReview
+//   每行一个单词，按单词名匹配
+//
+// 搜索功能：
+//   提供了通配符搜索 (searchWordsByRegex) 和模糊搜索 (searchWordsSimple)
+//   两种方式，通配符支持 ^/$ /*/？ 语法，跨平台实现（不依赖 POSIX regex.h）
+//
+// 依赖：
+//   - words.h: 数据结构和函数声明
+//   - config.h: WORDS_FILE_PATH 等路径常量
 // ============================================================================
 
 #include "words.h"
@@ -10,7 +35,13 @@
 #include <string.h>
 #include <ctype.h>
 
-// strdup 兼容性：MSVC 中名为 _strdup
+/*
+ * strdup 兼容性适配
+ * strdup 是 POSIX 函数，并非 C 标准库函数。
+ * MSVC (Windows) 中该函数名为 _strdup。
+ * GCC/Clang (Linux/macOS) 中可直接使用 strdup。
+ * C23 标准已将 strdup 纳入标准库，未来可移除此适配。
+ */
 #ifdef _MSC_VER
 #define strdup _strdup
 #endif
