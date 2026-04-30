@@ -56,9 +56,21 @@ add_executable(main_c
         src/modules/words.c
         src/modules/fonts.c
         src/ui/raylib_word_ui.c
-        src/ui/menu_callbacks.c)
+        src/ui/menu_callbacks.c
+        src/ui/pages/pages.h
+        src/ui/pages/page_home.c
+        src/ui/pages/page_learn.c
+        src/ui/pages/page_review_root.c
+        src/ui/pages/page_card_review.c
+        src/ui/pages/page_select_word.c
+        src/ui/pages/page_test.c
+        src/ui/pages/page_search.c
+        src/ui/pages/page_plan.c
+        src/ui/pages/page_settings.c
+        src/ui/pages/page_word_manager.c
+        src/ui/pages/page_account.c)
 
-target_include_directories(main_c PRIVATE src/core src/modules src/ui)
+target_include_directories(main_c PRIVATE src/core src/modules src/ui src/ui/pages)
 
 # 跨平台编译选项
 if(MSVC)
