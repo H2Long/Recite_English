@@ -110,10 +110,14 @@ void shuffleArray(int *array, int count) {
  * @param filename 单词数据文件路径（如 "./data/words.txt"）
  */
 void loadWordsFromFile(const char* filename) {
+    /* 尝试打开单词文件。如果文件不存在（首次运行或路径错误），
+     * 使用内置的 10 个默认单词作为后备方案，确保程序至少能运行。 */
     FILE* fp = fopen(filename, "r");
     if (fp == NULL) {
         printf("WARNING: Cannot open word file: %s, using default words\n", filename);
-        // 使用默认单词
+        /* ========== 后备方案：10 个内置默认单词 ==========
+         * 格式：[0]单词, [1]音标, [2]释义, [3]英文例句, [4]中文翻译
+         * 这些单词按字母序排列（abandon ~ accomplish）。 */
         const char* defaultWords[][5] = {
             {"abandon", "[ə'bændən]", "v. 放弃；抛弃", "Never abandon your dreams.", u8"永远不要放弃你的梦想。"},
             {"ability", "[ə'bɪləti]", "n. 能力", "She has the ability to speak three languages.", u8"她有说三种语言的能力。"},
@@ -226,47 +230,71 @@ void initWords(void) {
     loadProgress();
 }
 
-// 保存学习进度到文件
-// 格式：word|knownCount|unknownCount|lastReview（时间戳）
-// 每次背单词操作后自动调用
+/**
+ * saveProgress - 保存学习进度到文件
+ *
+ * 在每个"认识"/"不认识"操作后自动调用。
+ * 将 g_words 中每个单词的 knownCount / unknownCount / lastReview
+ * 写入 g_progressFilePath 指定的文件。
+ *
+ * 文件格式（每行一个单词）：
+ *   word|knownCount|unknownCount|lastReview时间戳
+ *
+ * 注意：此函数不保存 mastered 字段！
+ * mastered 由 loadProgress 在加载时根据 knownCount >= 3 重新计算。
+ * 这样设计的目的是保持持久化格式简洁，mastered 是一个"推导字段"。
+ */
 void saveProgress(void) {
+    /* 以"写入"模式打开进度文件，会覆盖旧文件 */
     FILE* fp = fopen(g_progressFilePath, "w");
     if (fp == NULL) {
         printf("WARNING: Cannot save progress to: %s\n", g_progressFilePath);
-        return;
+        return;  /* 写入失败不阻止程序运行，但进度无法保存 */
     }
     
+    /* 逐行写入每个单词的进度数据 */
     for (int i = 0; i < g_wordProgressCount; i++) {
         fprintf(fp, "%s|%d|%d|%ld\n",
-                g_words[i].entry.word,
-                g_words[i].progress.knownCount,
-                g_words[i].progress.unknownCount,
-                (long)g_words[i].progress.lastReview);
+                g_words[i].entry.word,                    /* 单词本身，用作唯一标识符 */
+                g_words[i].progress.knownCount,           /* 认识次数（如 3） */
+                g_words[i].progress.unknownCount,         /* 不认识次数（如 1） */
+                (long)g_words[i].progress.lastReview);    /* 上次复习时间戳（如 1714456789） */
     }
     
     fclose(fp);
     printf("INFO: Progress saved to %s\n", g_progressFilePath);
 }
 
-// 从文件加载学习进度
-// 程序启动时调用，恢复之前的学习状态
-// 认识次数>=3的单词自动标记为"已掌握"
+/**
+ * loadProgress - 从文件恢复学习进度
+ *
+ * 程序启动时调用。逐行读取进度文件，按单词名匹配到 g_words 中的对应条目，
+ * 恢复 knownCount / unknownCount / lastReview 三个字段。
+ * 然后根据 knownCount >= 3 重新计算 mastered 状态。
+ *
+ * 匹配算法：O(n*m) 线性扫描
+ *   对于进度文件中的每一行，遍历 g_words 数组查找同名单词。
+ *   当单词数不多（MAX_WORDS=100）时性能可接受。
+ *   如果将来扩展到数千单词，应改用哈希表加速。
+ *
+ * 如果进度文件不存在（首次运行），静默忽略，所有单词从 0 开始。
+ */
 void loadProgress(void) {
     FILE* fp = fopen(g_progressFilePath, "r");
     if (fp == NULL) {
         printf("INFO: No progress file found, starting fresh\n");
-        return;
+        return;  /* 首次运行，没有进度文件是正常的 */
     }
     
     char line[512];
     while (fgets(line, sizeof(line), fp)) {
-        // 去掉换行符
+        /* 去掉行尾换行符。Windows 文本文件可能包含 \r\n，两个都要处理 */
         size_t len = strlen(line);
         if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
         
-        if (strlen(line) == 0) continue;
+        if (strlen(line) == 0) continue;  /* 跳过空行 */
         
-        // 解析格式: word|knownCount|unknownCount|lastReview
+        /* 解析格式: word|knownCount|unknownCount|lastReview */
         char* fields[4] = {NULL, NULL, NULL, NULL};
         int fieldIdx = 0;
         char* token = strtok(line, "|");
@@ -276,17 +304,28 @@ void loadProgress(void) {
         }
         
         if (fieldIdx >= 4) {
-            // 查找对应的单词
+            /*
+             * O(n) 线性查找：遍历 g_words 数组，寻找同名的单词。
+             * 使用 strcmp 精确匹配单词名。
+             * 因为进度文件中的单词名来自之前 saveProgress 写入的，
+             * 所以一定能匹配上（除非用户手动编辑了进度文件导致名字不一致）。
+             */
             for (int i = 0; i < g_wordProgressCount; i++) {
                 if (strcmp(g_words[i].entry.word, fields[0]) == 0) {
+                    /* 恢复学习进度 */
                     g_words[i].progress.knownCount = atoi(fields[1]);
                     g_words[i].progress.unknownCount = atoi(fields[2]);
                     g_words[i].progress.lastReview = (time_t)atol(fields[3]);
-                    // 如果认识3次以上，标记为已掌握
+                    /*
+                     * 恢复 mastered 状态：
+                     * 当 knownCount >= MASTERED_THRESHOLD(3) 时为 true。
+                     * 这是"艾宾浩斯简化"策略：同一单词连续认识 3 次就算掌握。
+                     * 如果用户手动重置了进度文件为 0，mastered 自动变 false。
+                     */
                     if (g_words[i].progress.knownCount >= 3) {
                         g_words[i].progress.mastered = true;
                     }
-                    break;
+                    break;  /* 找到匹配的单词后立即停止搜索 */
                 }
             }
         }
@@ -296,17 +335,24 @@ void loadProgress(void) {
     printf("INFO: Progress loaded from %s\n", g_progressFilePath);
 }
 
-// 清除所有学习进度
-// 重置所有单词的认识/不认识次数、上次复习时间、掌握状态
-// 用于"清除进度"按钮
+/**
+ * clearProgress - 清除所有单词的学习进度
+ *
+ * 由"学习进度"页面的"清除进度"按钮触发。
+ * 重置所有单词的 knownCount/unknownCount/lastReview/mastered 为初始状态，
+ * 然后立即调用 saveProgress() 持久化到文件。
+ *
+ * 注意：此操作不可逆！清除后无法恢复。
+ */
 void clearProgress(void) {
+    /* 遍历所有单词，将学习进度重置为初始值 */
     for (int i = 0; i < g_wordProgressCount; i++) {
-        g_words[i].progress.knownCount = 0;
-        g_words[i].progress.unknownCount = 0;
-        g_words[i].progress.lastReview = 0;
-        g_words[i].progress.mastered = false;
+        g_words[i].progress.knownCount = 0;    /* 认识次数归零 */
+        g_words[i].progress.unknownCount = 0;  /* 不认识次数归零 */
+        g_words[i].progress.lastReview = 0;    /* 上次复习时间重置为"从未" */
+        g_words[i].progress.mastered = false;  /* 标记为"未掌握" */
     }
-    saveProgress();
+    saveProgress();  /* 立即保存到文件，防止数据丢失 */
     printf("INFO: Progress cleared\n");
 }
 
@@ -331,49 +377,63 @@ void clearProgress(void) {
  *   "ab??rd"  → "ab" + 任意2字符 + "rd"
  */
 static bool matchPattern(const char* word, const char* pattern) {
-    // 检查是否为 ^ 开头或 $ 结尾的模式
+    /*
+     * ========== 步骤 1：解析锚点 ==========
+     * 检查模式是否以 ^ 开头（要求从单词开头匹配）
+     * 或 $ 结尾（要求匹配到单词结尾）。
+     * 例如 "^ab" 只匹配以 "ab" 开头的单词。
+     */
     bool anchoredStart = (pattern[0] == '^');
     bool anchoredEnd = false;
     int patLen = strlen(pattern);
     if (patLen > 0 && pattern[patLen - 1] == '$') {
         anchoredEnd = true;
-        patLen--;
+        patLen--;  /* $ 不计入有效模式长度 */
     }
     
-    // 跳过开头的 ^
+    /* 去掉开头的 ^ 符号，得到实际模式 */
     const char* p = pattern + (anchoredStart ? 1 : 0);
     int remainingLen = patLen - (anchoredStart ? 1 : 0);
     
-    // 如果没有通配符且无锚点，使用简单的子串匹配
+    /*
+     * ========== 步骤 2：快速路径 ==========
+     * 如果模式不含通配符（* 或 ?）也不含锚点，
+     * 直接使用不区分大小写的子串匹配(strstr)，
+     * 无需走下面的通配符解析逻辑。
+     * 这是最常见的情况，优化性能。
+     */
     if (!anchoredStart && !anchoredEnd && !strchr(p, '*') && !strchr(p, '?')) {
-        // 不区分大小写子串匹配
         char wordLower[256], patLower[256];
-        strncpy(wordLower, word, sizeof(wordLower) - 1);
-        wordLower[sizeof(wordLower) - 1] = '\0';
-        strncpy(patLower, p, sizeof(patLower) - 1);
-        patLower[sizeof(patLower) - 1] = '\0';
+        strncpy(wordLower, word, sizeof(wordLower) - 1);  wordLower[sizeof(wordLower) - 1] = '\0';
+        strncpy(patLower, p, sizeof(patLower) - 1);      patLower[sizeof(patLower) - 1] = '\0';
         for (int i = 0; wordLower[i]; i++) wordLower[i] = tolower(wordLower[i]);
         for (int i = 0; patLower[i]; i++) patLower[i] = tolower(patLower[i]);
         return strstr(wordLower, patLower) != NULL;
     }
     
-    // 带通配符和锚点的递归匹配
-    // 每次匹配一个碎片：普通字符串或通配符
-    const char* w = word;
-    const char* pat = p;
-    int wLen = strlen(word);
-    int totalPatLen = remainingLen;
+    /*
+     * ========== 步骤 3：慢速路径 ==========
+     * 模式含有通配符或锚点。匹配策略："分段匹配法"
+     * 1. 将模式按 * 分割成多个文本片段
+     * 2. 每个片段顺序在单词中查找出现位置
+     * 3. 检查首尾段是否满足锚点要求
+     *
+     * 例如模式 "a*b" 被分割为 ["a", "b"]，
+     * 在单词 "abandon" 中：先找 "a" 在位置 0，再找 "b" 在位置 1 → 匹配成功。
+     */
     
-    // 构建简化后的模式（移除连续 *）
+    /* 步骤 3a：预处理 — 合并连续的 *（"a**b" → "a*b"），提取有效模式 */
     char simplePat[256];
     int si = 0;
-    for (int i = 0; pat[i] && i < totalPatLen; i++) {
-        if (pat[i] == '*' && i > 0 && pat[i-1] == '*') continue;
-        simplePat[si++] = pat[i];
+    for (int i = 0; p[i] && i < remainingLen; i++) {
+        if (p[i] == '*' && i > 0 && p[i-1] == '*') continue;  /* 跳过连续多余的 * */
+        simplePat[si++] = p[i];
     }
     simplePat[si] = '\0';
     
-    // 将模式按 * 分割，逐段匹配
+    /* 步骤 3b：以 * 为分隔符，将模式切成文本段
+     * 例如 "a*b*c" → ["a", "b", "c"]（3 段）
+     * 例如 "*abc*" → ["abc"]（1 段，前后 * 被切掉） */
     char segments[16][64];
     int segCount = 0;
     char segBuf[256];
@@ -382,47 +442,49 @@ static bool matchPattern(const char* word, const char* pattern) {
     while (segToken != NULL && segCount < 16) {
         strncpy(segments[segCount], segToken, sizeof(segments[0]) - 1);
         segments[segCount][sizeof(segments[0]) - 1] = '\0';
-        // 转为小写
         for (int j = 0; segments[segCount][j]; j++)
             segments[segCount][j] = tolower(segments[segCount][j]);
         segCount++;
         segToken = strtok(NULL, "*");
     }
     
-    if (segCount == 0) {
-        // 只有通配符，匹配一切
-        return true;
-    }
+    /* 如果切完没有文本段，说明模式只有 *，匹配一切 */
+    if (segCount == 0) return true;
     
-    // 判断是否以 * 开头
+    /* 步骤 3c：判断首尾是否有 *（用于锚点检查） */
     bool startsWithStar = (simplePat[0] == '*');
-    
-    // 判断是否以 * 结尾
     bool endsWithStar = (simplePat[si - 1] == '*');
     
-    // 将单词转为小写
+    /* 步骤 3d：将单词统一转为小写，准备匹配 */
     char wordLower[256];
-    strncpy(wordLower, word, sizeof(wordLower) - 1);
-    wordLower[sizeof(wordLower) - 1] = '\0';
+    strncpy(wordLower, word, sizeof(wordLower) - 1);  wordLower[sizeof(wordLower) - 1] = '\0';
     for (int j = 0; wordLower[j]; j++) wordLower[j] = tolower(wordLower[j]);
     int wl = strlen(wordLower);
     
-    // 检查每个片段是否按顺序出现在单词中
+    /*
+     * 步骤 3e：顺序匹配每个文本段
+     * 从位置 0 开始，在单词中查找第 0 段、第 1 段……
+     * 每次查找都从上一次找到的位置之后开始（pos 递增）。
+     * 例如 "*a*b" 匹配 "xayb"：
+     *   第 0 段 "a" → 在 pos=0 找到，位置 1，pos 更新为 2
+     *   第 1 段 "b" → 在 pos=2 找到，位置 3，pos 更新为 4
+     *   所有段都找到 → 匹配成功。
+     */
     int pos = 0;
     for (int s = 0; s < segCount; s++) {
         char* found = strstr(wordLower + pos, segments[s]);
-        if (found == NULL) return false;
+        if (found == NULL) return false;  /* 某一段没找到，匹配失败 */
         
-        // 第一个片段必须从开头匹配（如果没有前导 *）
+        /* 如果没有前导 *，第 0 段必须从单词开头开始匹配 */
         if (s == 0 && !startsWithStar && found != wordLower) return false;
         
-        pos = (int)(found - wordLower) + strlen(segments[s]);
+        pos = (int)(found - wordLower) + strlen(segments[s]);  /* 更新查找起点 */
     }
     
-    // 最后一个片段必须匹配到结尾（如果没有后导 *）
+    /* 如果没有后导 *，最后一段必须匹配到单词结尾 */
     if (!endsWithStar && pos != wl) return false;
     
-    return true;
+    return true;  /* 所有检查通过，匹配成功 */
 }
 
 /**
@@ -493,12 +555,23 @@ int searchWordsSimple(const char* query, int* results, int maxResults) {
 // 词库管理函数实现
 // ============================================================================
 
+/**
+ * saveWordsToFile - 将 g_wordLibrary 保存到 words.txt
+ *
+ * 在词库管理页面的添加/编辑/删除操作后自动调用。
+ * 覆盖写入，每行一个单词，5 个字段用管道符分隔。
+ * 空字段会被写入空字符串（"") 而不是 NULL。
+ *
+ * @param filename 保存路径（通常为 WORDS_FILE_PATH）
+ * @return true 保存成功，false 保存失败（文件无法写入）
+ */
 bool saveWordsToFile(const char* filename) {
     FILE* fp = fopen(filename, "w");
     if (fp == NULL) {
         printf("WARNING: Cannot save words to %s\n", filename);
         return false;
     }
+    /* 遍历词库，逐行写入。使用三元运算符检查空指针避免崩溃。 */
     for (int i = 0; i < g_wordCount; i++) {
         fprintf(fp, "%s|%s|%s|%s|%s\n",
                 g_wordLibrary[i].word ? g_wordLibrary[i].word : "",
@@ -514,111 +587,151 @@ bool saveWordsToFile(const char* filename) {
 
 /**
  * addWordToLibrary - 添加新单词到词库
- * 
- * 参数检查通过后在 g_wordLibrary 末尾追加新条目，
- * 所有字段都通过 strdup 复制，确保内存独立。
- * 添加后自动保存到 words.txt 文件。
- * 注意：添加后需调用 reloadWords() 同步到 g_words 进度数组。
- * 
- * @param w 单词（必填，不能为空）
- * @param ph 音标（可选，为空时存空字符串）
+ *
+ * 在 g_wordLibrary 末尾追加一个新单词条目。
+ * 所有文本字段通过 strdup() 复制（深拷贝），确保内存独立。
+ * 添加后自动保存到文件并打印日志。
+ *
+ * 注意：
+ * 1. 此函数操作的是 g_wordLibrary（原始词库），不是 g_words（进度数组）。
+ * 2. 添加后需调用 reloadWords() 将新单词同步到 g_words 并初始化进度。
+ * 3. 自动扩容：当 g_wordCount 达到容量上限时，容量翻倍（从 50 开始）。
+ *    ⚠️ 当前 realloc 返回值未检查，OOM 时可能导致指针丢失。
+ *
+ * @param w   单词（必填，不能为 NULL 或空字符串）
+ * @param ph  音标（可选，传 NULL 或空串时存 "")
  * @param def 释义（可选）
- * @param ex 例句（可选）
+ * @param ex  例句（可选）
  * @param ext 例句翻译（可选）
- * @return true 添加成功，false 添加失败（单词为空或已到上限）
+ * @return true 成功，false 失败（单词为空或超出容量上限 MAX_WORDS+200）
  */
 bool addWordToLibrary(const char* w, const char* ph, const char* def,
                       const char* ex, const char* ext) {
+    /* ---- 参数校验 ---- */
     if (w == NULL || strlen(w) == 0) return false;
-    if (g_wordCount >= MAX_WORDS + 200) return false;
+    if (g_wordCount >= MAX_WORDS + 200) return false;  /* 硬上限保护 */
+
+    /* ---- 自动扩容：当数组满时容量倍增 ---- */
     if (g_wordCount >= g_wordLibraryCapacity) {
         g_wordLibraryCapacity = g_wordLibraryCapacity == 0 ? 50 : g_wordLibraryCapacity * 2;
+        /* ⚠️ 风险：realloc 返回 NULL 时原始指针丢失 */
         g_wordLibrary = (WordEntry*)realloc(g_wordLibrary, g_wordLibraryCapacity * sizeof(WordEntry));
     }
+
+    /* ---- 在末尾追加新条目（strdup 深拷贝每个字段） ---- */
     g_wordLibrary[g_wordCount].word = strdup(w);
     g_wordLibrary[g_wordCount].phonetic = strdup(ph ? ph : "");
     g_wordLibrary[g_wordCount].definition = strdup(def ? def : "");
     g_wordLibrary[g_wordCount].example = strdup(ex ? ex : "");
     g_wordLibrary[g_wordCount].exampleTranslation = strdup(ext ? ext : "");
     g_wordCount++;
-    saveWordsToFile(WORDS_FILE_PATH);
+
+    saveWordsToFile(WORDS_FILE_PATH);  /* 持久化到文件 */
     return true;
 }
 
 /**
  * editWordInLibrary - 编辑词库中指定索引的单词
- * 
- * 先释放原有字段的内存，再通过 strdup 复制新内容。
- * 编辑后自动保存到 words.txt 文件并需调用 reloadWords() 同步。
- * 
- * @param idx 要编辑的单词索引（0 ~ g_wordCount-1）
- * @param w 新单词内容（必填）
- * @param ph 新音标
+ *
+ * 先释放该单词原有字段的 strdup 内存，再通过 strdup 复制新内容。
+ * 编辑后自动保存到文件。
+ *
+ * @param idx 要编辑的单词索引（必须在 0 ~ g_wordCount-1 范围内）
+ * @param w   新单词内容（必填，不能为空）
+ * @param ph  新音标
  * @param def 新释义
- * @param ex 新例句
+ * @param ex  新例句
  * @param ext 新例句翻译
- * @return true 编辑成功，false 编辑失败（索引无效或单词为空）
+ * @return true 成功，false 失败（索引无效或单词为空）
  */
 bool editWordInLibrary(int idx, const char* w, const char* ph,
                        const char* def, const char* ex, const char* ext) {
+    /* ---- 参数校验 ---- */
     if (idx < 0 || idx >= g_wordCount || w == NULL || strlen(w) == 0) return false;
+
+    /* ---- 释放原有内存 ---- */
     free((void*)g_wordLibrary[idx].word);
     free((void*)g_wordLibrary[idx].phonetic);
     free((void*)g_wordLibrary[idx].definition);
     free((void*)g_wordLibrary[idx].example);
     free((void*)g_wordLibrary[idx].exampleTranslation);
+
+    /* ---- 用新内容替换（strdup 深拷贝） ---- */
     g_wordLibrary[idx].word = strdup(w);
     g_wordLibrary[idx].phonetic = strdup(ph ? ph : "");
     g_wordLibrary[idx].definition = strdup(def ? def : "");
     g_wordLibrary[idx].example = strdup(ex ? ex : "");
     g_wordLibrary[idx].exampleTranslation = strdup(ext ? ext : "");
-    saveWordsToFile(WORDS_FILE_PATH);
+
+    saveWordsToFile(WORDS_FILE_PATH);  /* 持久化到文件 */
     return true;
 }
 
 /**
  * deleteWordFromLibrary - 从词库删除指定索引的单词
- * 
- * 释放该单词的所有字段内存，将后续单词前移填补空缺，
- * 最后递减 g_wordCount。删除后自动保存到 words.txt。
- * 
+ *
+ * 1. 释放该单词所有字段的 strdup 内存
+ * 2. 将后续单词前移一位（memmove / 循环赋值）
+ * 3. 递减 g_wordCount
+ * 4. 保存到文件
+ *
  * @param idx 要删除的单词索引
- * @return true 删除成功，false 索引无效
+ * @return true 成功，false 索引无效
  */
 bool deleteWordFromLibrary(int idx) {
     if (idx < 0 || idx >= g_wordCount) return false;
+
+    /* 释放被删除单词的内存 */
     free((void*)g_wordLibrary[idx].word);
     free((void*)g_wordLibrary[idx].phonetic);
     free((void*)g_wordLibrary[idx].definition);
     free((void*)g_wordLibrary[idx].example);
     free((void*)g_wordLibrary[idx].exampleTranslation);
+
+    /* 将后续单词前移填补空缺（结构体赋值，不是指针移动） */
     for (int i = idx; i < g_wordCount - 1; i++) g_wordLibrary[i] = g_wordLibrary[i + 1];
     g_wordCount--;
-    saveWordsToFile(WORDS_FILE_PATH);
+
+    saveWordsToFile(WORDS_FILE_PATH);  /* 持久化到文件 */
     return true;
 }
 
 /**
- * reloadWords - 重新加载 g_words 进度数组（词库修改后调用）
- * 
- * 将 g_wordLibrary 的最新数据同步到 g_words 数组。
- * 对于新增索引（i >= oldCnt）初始化进度为默认值，
- * 对于已有索引保留原有的 knownCount 等进度数据。
- * 
- * 在词库管理页面的添加/编辑/删除操作后调用。
+ * reloadWords - 词库修改后将 g_wordLibrary 同步到 g_words
+ *
+ * 在词库管理页面执行添加/编辑/删除后调用。
+ * 重新遍历 g_wordLibrary，将数据同步到 g_words 进度数组。
+ *
+ * ⚠️ 重要：g_words[i].entry = g_wordLibrary[i] 是浅拷贝（结构体赋值），
+ * 两者共享 WordEntry 中的 char* 指针。如果后续 deleteWordFromLibrary
+ * 释放了这些指针，g_words 中的对应指针将变成悬空指针（dangling pointer）。
+ * 但本程序的调用时序确保：每次词库修改后立即调用 reloadWords()，
+ * 且在 reloadWords() 之后 g_wordLibrary 中的指针始终有效，
+ * 所以短期内不会出现 use-after-free。
+ *
+ * 对于新增单词（i >= oldCnt），初始化为默认进度（0 次，未掌握）。
+ * 对于已有单词，保留原有的 knownCount 等进度数据。
  */
 void reloadWords(void) {
-    int oldCnt = g_wordProgressCount;
-    g_wordProgressCount = 0;
+    int oldCnt = g_wordProgressCount;  /* 记住旧的进度数量 */
+    g_wordProgressCount = 0;           /* 从 0 开始重新计数 */
+
     for (int i = 0; i < g_wordCount && i < MAX_WORDS; i++) {
+        /*
+         * 浅拷贝：g_words[i].entry 与 g_wordLibrary[i] 共享指针内存。
+         * 注释见函数头说明。这是已知的风险点。
+         */
         g_words[i].entry = g_wordLibrary[i];
-        g_words[i].progress.wordIndex = i;
+        g_words[i].progress.wordIndex = i;  /* 更新进度索引 */
+
+        /* 如果是新增的单词（超出旧进度数组范围），初始化进度 */
         if (i >= oldCnt) {
             g_words[i].progress.knownCount = 0;
             g_words[i].progress.unknownCount = 0;
             g_words[i].progress.lastReview = 0;
             g_words[i].progress.mastered = false;
         }
+        /* 已有单词的进度数据保持不变（由 loadProgress 恢复） */
         g_wordProgressCount++;
     }
     printf("INFO: Reloaded %d words\n", g_wordProgressCount);
