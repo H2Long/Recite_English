@@ -826,6 +826,21 @@ void UIEndScrollView(UIScrollView* scroll, UIStyle* style, UIState* state) {
 
 /**
  * 绘制列表项
+
+// ============================================================================
+// 持久化滚动视图（自动保存滚动位置）
+// ============================================================================
+
+void UIBeginPersistentScrollView(PersistentScrollView* psv, Rectangle viewport, Vector2 contentSize, float* offsetPtr) {
+    psv->persistedOffset = offsetPtr;
+    psv->sv.scrollOffset.y = *offsetPtr;
+    UIBeginScrollView(&psv->sv, viewport, contentSize);
+}
+
+void UIEndPersistentScrollView(PersistentScrollView* psv, UIStyle* style, UIState* state) {
+    UIEndScrollView(&psv->sv, style, state);
+    *psv->persistedOffset = psv->sv.scrollOffset.y;
+}
  * @param text 显示文字
  * @param itemRect 项的区域
  * @param style 样式指针

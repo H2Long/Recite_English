@@ -44,6 +44,12 @@ typedef struct {
     bool showScrollbar;     // 是否显示滚动条
 } UIScrollView;
 
+// 持久化滚动视图（自动保存滚动位置）
+typedef struct {
+    UIScrollView sv;
+    float* persistedOffset;
+} PersistentScrollView;
+
 // ============================================================================
 // 文本框状态结构
 // ============================================================================
@@ -204,5 +210,9 @@ void UISearchBar(SearchBarState* sb, Rectangle rect, UIStyle* style, UIState* st
 // 单词列表视图
 int UIWordListView(WordEntry* words, int count, int* selectedIndex,
                    UIScrollView* scroll, UIStyle* style, UIState* state);  // 单词列表
+
+// 持久化滚动视图
+void UIBeginPersistentScrollView(PersistentScrollView* psv, Rectangle viewport, Vector2 contentSize, float* offsetPtr);
+void UIEndPersistentScrollView(PersistentScrollView* psv, UIStyle* style, UIState* state);
 
 #endif // RAYLIB_WORD_UI_H

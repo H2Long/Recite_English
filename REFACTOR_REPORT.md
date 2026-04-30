@@ -10,13 +10,139 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | raylib-word |
-| 当前版本 | v4.1.1 |
+| 当前版本 | v5.0.0 |
 | 创建日期 | 2025-01-26 |
 | 最近更新 | 2026-04-29 |
 
 ---
 
 ## 更新日志
+
+### v5.0.0 (2026-04-30) - 代码架构重构与质量优化
+
+#### 重构内容
+
+##### 1. PersistentScrollView —— 滚动视图位置自动持久化
+
+**新增文件**：`raylib_word_ui.h/c`
+
+```c
+// 新增结构体
+typedef struct {
+    UIScrollView sv;         // 内部的滚动视图
+    float* persistedOffset;  // 指向外部持久化偏移量
+} PersistentScrollView;
+
+// 新增 API
+void UIBeginPersistentScrollView(PersistentScrollView* psv, Rectangle viewport,
+                                 Vector2 contentSize, float* offsetPtr);
+void UIEndPersistentScrollView(PersistentScrollView* psv, UIStyle* style, UIState* state);
+```
+
+**解决的问题**：开发中多个页面（词库管理列表、侧边导航栏、计划列表）出现滚动位置每帧重置的 Bug，因为 `UIScrollView` 是局部变量。
+
+**旧写法**（每处手动管理）：
+```c
+static float g_scroll = 0.0f;
+UIScrollView sv = {0};
+sv.scrollOffset.y = g_scroll;
+// ... 绘制 ...
+UIEndScrollView(&sv, STYLE, UI_STATE);
+g_scroll = sv.scrollOffset.y;
+```
+
+**新写法**（封装自动化）：
+```c
+static float g_scroll = 0.0f;
+PersistentScrollView psv = {0};
+UIBeginPersistentScrollView(&psv, viewport, contentSize, &g_scroll);
+// ... 绘制 ...
+UIEndPersistentScrollView(&psv, STYLE, UI_STATE);
+```
+
+##### 2. 改进建议文档
+
+**新增文件**：`improvement_suggestions.md` 第 11 章
+
+新增 10 条基于实际 Bug 经验的代码质量优化建议：
+1. 统一状态绑定模式（防止重复 Bug）
+2. 滚动视图位置持久化封装
+3. 全局调试标记系统
+4. 输入框焦点管理优化
+5. 字体预加载自动化
+6. 字符串操作安全封装
+7. 菜单注册模式简化
+8. 构建脚本增强
+9. 统一消息提示组件
+10. 本地化/配置分离
+
+##### 3. 调试日志文档
+
+**新增文件**：`BACKSPACE_SUPPORT_REPORT.md`
+
+新增「经验 12：计划数据不显示」章节，详细记录了与账号系统相同的状态绑定 Bug 的发现、诊断和修复过程。
+
+---
+
+#### 当前代码架构与层级
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     表现层 (UI)                          │
+│  main.c           ─ 主循环、登录遮罩、页面调度            │
+│  menu_callbacks.c ─ 所有菜单页面渲染函数                 │
+│  fonts.c          ─ 字体加载、混合文本绘制               │
+│  raylib_word_ui.c ─ UI 组件库（按钮/输入框/滚动视图）    │
+│  tree_menu.c      ─ 树形菜单导航系统                    │
+├─────────────────────────────────────────────────────────┤
+│                     业务层 (Service)                    │
+│  words.c          ─ 单词加载、进度管理、搜索             │
+│  plan.c           ─ 学习计划管理（独立库）               │
+│  account.c        ─ 账号管理系统（独立库）               │
+├─────────────────────────────────────────────────────────┤
+│                     数据层 (Data)                       │
+│  app_state.c      ─ 统一状态管理（AppState）             │
+│                    └─ 状态绑定：account/plan 注册到此处  │
+│                    └─ 菜单系统、主题、各模式状态         │
+│  config.h         ─ 配置常量（窗口/学习参数/UI 尺寸）    │
+│  words.txt        ─ 单词数据文件                        │
+│  accounts.txt     ─ 账号数据文件                        │
+│  plans.txt        ─ 学习计划数据文件                     │
+│  progress.txt     ─ 学习进度文件                        │
+├─────────────────────────────────────────────────────────┤
+│                     独立库模块                          │
+│  account.c/h      ─ 账号库（注册/登录/登出/状态绑定）    │
+│  plan.c/h         ─ 学习计划库（创建/删除/激活/持久化）  │
+│  raylib_word_ui   ─ UI 组件库（按钮/输入框/滚动/闪卡）  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**各层职责说明**：
+
+| 层级 | 职责 | 依赖关系 |
+|------|------|----------|
+| 表现层 | 用户界面渲染、事件处理 | 依赖业务层获取数据 |
+| 业务层 | 核心业务逻辑（单词管理/计划/账号） | 独立模块，通过 API 暴露功能 |
+| 数据层 | 状态管理、配置、文件持久化 | 被所有层引用 |
+| 独立库 | 可复用的功能模块 | 通过 `SetState` 绑定到数据层 |
+
+**关键设计模式**：
+
+1. **状态绑定模式**（`account.c` / `plan.c`）
+   - 库内部通过 `getState()` 获取状态指针
+   - `SetState()` 绑定到 `AppState` 的字段
+   - 未绑定时使用内部备用状态
+
+2. **菜单树模式**（`tree_menu.c`）
+   - 树形菜单节点通过函数指针关联渲染函数
+   - 菜单栈实现"返回"导航
+   - `GetMenuItemText` 通过函数指针匹配判断菜单名
+
+3. **滚动视图持久化**（`PersistentScrollView`）
+   - 封装 `UIScrollView` + 外部 `float*`
+   - 自动读写滚动位置，消除手动管理
+
+---
 
 ### v4.1.1 (2026-04-29) - 计划数据绑定修复 + 删除按钮
 

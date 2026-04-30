@@ -1181,7 +1181,7 @@ void MenuSettings_Show(void) {
 
     // 关于内容
     Rectangle aboutContent = {aboutSection.x + 30, aboutSection.y + 50, 600, 60};
-    const char* aboutText = u8"背单词软件 v4.1.0\n基于 raylib 构建，支持中英文混合显示";
+    const char* aboutText = u8"背单词软件 v5.0.0\n基于 raylib 构建，支持中英文混合显示";
     UIDrawTextRec(aboutText, aboutContent, 18, 1, true, STYLE->theme.textSecondary);
 }
 
