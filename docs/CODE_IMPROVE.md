@@ -1,182 +1,336 @@
 # 代码优化建议
 
-> 本文档基于对整个项目源码的深入审查整理而成，按优先级排列。
+> 本文档基于对整个项目源码的全面审查整理而成。
+> **已按修改难度从易到难排序**，方便你人工逐步修复。
 
 ---
 
 ## 目录
 
-- [🔴 高危 — 建议立即修复](#-高危--建议立即修复)
-- [🟡 中危 — 建议下次迭代修复](#-中危--建议下次迭代修复)
-- [🟢 低危 — 建议长期优化](#-低危--建议长期优化)
-- [💡 架构建议](#-架构建议)
+- [🟢 非常简单（5分钟内可改完）](#-非常简单5分钟内可改完)
+- [🟡 简单（10~15分钟）](#-简单1015分钟)
+- [🟠 中等（30分钟左右）](#-中等30分钟左右)
+- [🔴 困难（1小时以上）](#-困难1小时以上)
+- [💡 架构建议（长期规划）](#-架构建议长期规划)
 
 ---
 
-## 🔴 高危 — 建议立即修复
+## 🟢 非常简单（5分钟内可改完）
 
-### 1. 浅拷贝导致 Use-After-Free 风险
+### 1. 删除 `g_learnScrollOffset` 死代码
 
-**文件：** `src/modules/words.c:583`
+**文件：** `src/modules/words.c` 第 41~42 行
 
 ```c
-g_words[i].entry = g_wordLibrary[i];  // 浅拷贝指针！
+float g_learnScrollOffset = 0;  // 当前未使用，由 LearnState 管理
 ```
 
-`WordEntry` 包含 5 个 `char*` 指针（word / phonetic / definition / example / exampleTranslation）。`g_words[i].entry = g_wordLibrary[i]` 是**结构体赋值**，两个数组的指针指向同一块 `strdup` 分配的内存。
-
-当 `deleteWordFromLibrary()` 释放这些指针后，`g_words` 中的对应指针变成悬空指针（dangling pointer），后续访问会导致 **use-after-free**。
-
-**修复方案：** `reloadWords()` 改为深拷贝，或删除单词后同时清理 `g_words` 中对应的进度条目。
+注释已经说明了它没被使用。直接删除这两行。
 
 ---
 
-### 2. `realloc` 返回值未检查 — OOM 时内存泄漏
+### 2. 删除 `AppState_Reset()` 死代码（或确认保留）
 
-**出现位置（3处）：**
+**文件：** `src/core/app_state.c` 第 75~94 行
 
-| 文件 | 行号 | 代码 |
-|------|------|------|
-| `src/modules/words.c` | 128 | `g_wordLibrary = realloc(g_wordLibrary, ...)` |
-| `src/modules/words.c` | 505 | `g_wordLibrary = realloc(g_wordLibrary, ...)` |
-| `src/modules/fonts.c` | 392 | `allGlyphs = realloc(allGlyphs, ...)` |
+`AppState_Reset()` 定义了完整的重置逻辑，但在整个项目中**没有任何地方调用它**。
 
-`realloc` 返回 NULL 时，原始指针丢失，造成内存泄漏。
-
-**修复方案：**
-```c
-WordEntry* tmp = (WordEntry*)realloc(g_wordLibrary, newSize);
-if (tmp == NULL) {
-    // 处理错误，g_wordLibrary 仍然有效
-    return false;
-}
-g_wordLibrary = tmp;
-```
+**选择方案：**
+- 如果以后会用到 → 保留不动
+- 如果不会用到 → 删除函数和它在 `app_state.h` 中的声明
 
 ---
 
-### 3. 文件解析失败时内存泄漏
+### 3. 删除 `config.h` 中未使用的宏
 
-**文件：** `src/modules/words.c:140-148`
+**文件：** `src/core/config.h`
+
+以下宏定义了但从未在任何 `.c` 文件中使用：
 
 ```c
-char* fields[5] = {NULL, NULL, NULL, NULL, NULL};
-// ... strdup 分配各字段 ...
-if (fieldIdx >= 3) {
-    // 使用 fields...
-} // else: fieldIdx < 3 时，已 strdup 的 fields[0] 等无人释放
+// 第 24~33 行 — 基础颜色（实际颜色来自 raylib_word_ui.c 的 Theme 结构体）
+#define COLOR_BLACK        ...
+#define COLOR_WHITE        ...
+#define COLOR_RED          ...
+
+// 第 36~40 行 — 主题颜色（未被引用）
+#define THEME_PRIMARY      ...
+#define THEME_SUCCESS      ...
+
+// 第 43~45 行 — 透明度预设
+#define OPACITY_DIM        0.2f
+#define OPACITY_NORMAL     0.5f
+#define OPACITY_BRIGHT     0.8f
+
+// 第 92 行 — 测试时间限制（保留供未来用）
+#define TEST_TIME_LIMIT     0
 ```
 
-当一行数据少于 3 个字段时，`strdup` 分配的内存泄漏了。
-
-**修复方案：** 添加 `else` 分支释放已分配的字段。
+**操作：** 直接删除除 `TEST_TIME_LIMIT`（可能以后会用到）外的所有未使用宏。
 
 ---
 
-### 4. `void()` 函数指针禁用类型检查
+### 4. 修复 `hash_string` 中 `int c` → `unsigned char c`
 
-**文件：** `src/core/tree_menu.h:23-24`, `tree_menu.c:20`
+**文件：** `src/modules/account.c` 第 51 行
 
 ```c
-void (*show)();          // C89 风格：参数列表未指定
-void (*fun)();
+int c;
+while ((c = *str++)) {
 ```
 
-C 语言中 `void()` 表示"未指定参数"（旧式风格），编译器不会检查参数。应改为：
+当 `char` 为有符号类型时，高 ASCII 字符（≥ 0x80）会变成负数，影响哈希结果。
 
+**修复：** 改为 `unsigned char c;`
+
+---
+
+### 5. 修复 `WINDOW_TITLE` 宏使用（已修复）
+
+**文件：** `src/main.c` 第 40 行
+
+`config.h` 中定义了 `#define WINDOW_TITLE u8"背单词软件"`，但 `main.c` 之前是硬编码的字符串。
+
+✅ **这个已经改好了，不用动。**
+
+---
+
+### 6. 删除 `src/` 下残留的空文件
+
+**文件：**
+- ~~`src/account.h`~~ ✅ 已删除
+- ~~`src/config.h`~~ ✅ 已删除
+- ~~`src/fonts.c`~~ ✅ 已删除
+- ~~`src/plan.c`~~ ✅ 已删除
+- ~~`src/plan.h`~~ ✅ 已删除
+- ~~`src/words.c`~~ ✅ 已删除
+
+✅ **这些已经删除了，不用再管。**
+
+---
+
+### 7. 给新拆分的页面文件补充头注释
+
+**文件：** `src/ui/pages/` 下的 11 个新文件
+
+刚拆分的页面文件缺少详细的函数级注释。每个文件已经有一个文件头注释：
 ```c
-void (*show)(void);     // 明确声明：无参数
-void (*fun)(void);
+// ============================================================================
+// 主菜单页面
+// 包含欢迎信息、统计卡片和三个功能入口
+// ============================================================================
 ```
 
----
-
-## 🟡 中危 — 建议下次迭代修复
-
-### 5. `menu_callbacks.c` 过于庞大（2089 行）
-
-单个文件包含所有 14 个页面的渲染逻辑，违背单一职责原则。
-
-**建议：** 按功能拆分为多个文件：
-
-```
-src/ui/
-├── menu_learn.c          ← 学单词页面
-├── menu_card_review.c    ← 卡片背单词
-├── menu_select_word.c    ← 选词背单词
-├── menu_test.c           ← 测试模式
-├── menu_plan.c           ← 学习计划 + 进度
-├── menu_settings.c       ← 设置
-├── menu_account.c        ← 账号/登录/注册
-├── menu_word_manager.c   ← 词库管理
-├── menu_search.c         ← 查找单词
-└── menu_callbacks.c      ← 菜单系统辅助函数（InitMenuTree/DrawTreeMenu）
-```
+建议为每个页面函数加上 Doxygen 风格的入参/返回值注释。
 
 ---
 
-### 6. 初始化逻辑重复：`main.c` vs `AppState_Init`
+### 8. 修复 `scene_` 文件名简洁性（可选）
 
-**文件：** `src/main.c:64-83`, `src/core/app_state.c:31-66`
-
-`main.c` 手动初始化 `REVIEW.reviewCount`、`TEST.testCount` 等字段，然后马上调用 `AppState_Init()` 又初始化一遍相同的字段。`main.c` 的值覆盖了 `AppState_Init()` 的值。
-
-**建议：** 将初始化逻辑全部移到 `AppState_Init()` 中，`main.c` 只做业务相关的初始化。
+当前页面文件名为 `page_home.c`、`page_learn.c` 等，命名清晰，无需修改。
 
 ---
 
-### 7. 密码哈希不安全（djb2 算法）
+## 🟡 简单（10~15分钟）
 
-**文件：** `src/modules/account.c:48-88`
+### 9. 将硬编码按钮 ID 提取为枚举
 
-使用 `djb2` 哈希（哈希表用）存储密码，未加盐（no salt），彩虹表可逆向。
+**文件：** `src/ui/pages/` 中多处出现
 
-**建议：** 对本地学习软件来说风险可控，代码注释已说明"非加密安全"。如果后续需要更强的安全性，建议使用 SHA-256 加盐。
-
----
-
-### 8. 硬编码按钮 ID 可能冲突
-
-**文件：** `src/ui/menu_callbacks.c` 中大量使用
-
+目前按钮 ID 是散落的魔法数字：
 ```c
-UIButton(u8"上一个", ..., 1);    // ID=1
+UIButton(u8"上一个", ..., 1);
 UIButton(u8"下一个", ..., 2);
 UIButton(u8"返回",   ..., 6);
 UIButton(u8"搜索",   ..., 7);
 ```
 
-这些 ID 分散在各个函数中，新增页面时容易重复，导致按钮状态错乱。
+这些 ID 如果重复会导致按钮状态错乱。
 
-**建议：** 定义枚举：
+**修复方案：** 在 `pages.h` 中添加枚举：
 
 ```c
+// pages.h 末尾添加
 typedef enum {
     BTN_PREV = 1,
     BTN_NEXT,
-    BTN_RESTART,
+    BTN_RESTART_TEST,
     BTN_NEXT_QUESTION,
     BTN_CLEAR_PROGRESS,
     BTN_BACK,
     BTN_SEARCH,
-    // ...
+    BTN_RESTART_SELECT,
+    BTN_NEXT_CHOICE,
+    BTN_RESTART,
+    // 页面级别的按钮 100+...
+    BTN_HOME_START = 100,
+    BTN_REVIEW_MODE = 500,
+    BTN_WORD_MANAGER = 600,
+    BTN_PLAN = 700,
+    BTN_LOGIN = 800,
 } ButtonID;
+```
+
+然后全局搜索替换所有魔法数字。由于按钮 ID 不能重复，这个方法也更容易发现冲突。
+
+---
+
+### 10. 从 `MenuHome_Show` 提取搜索触发函数（消除重复代码）
+
+**文件：** `src/ui/pages/page_search.c` 第 30~37 行
+
+搜索按钮和自动搜索的代码几乎完全一样：
+
+```c
+// 按钮搜索（第 30~37 行）
+if (UIButton(u8"搜索", btnRect, STYLE, UI_STATE, 7)) {
+    const char* query = SEARCH.searchBar.textState.buffer;
+    if (strlen(query) > 0) {
+        SEARCH.searchResultCount = searchWordsByRegex(query, ...);
+        if (SEARCH.searchResultCount == 0)
+            SEARCH.searchResultCount = searchWordsSimple(query, ...);
+    }
+}
+// 自动搜索（第 38~45 行）-- 几乎一样的逻辑
+int currentLen = strlen(SEARCH.searchBar.textState.buffer);
+if (currentLen > 0 && currentLen != lastSearchLen) {
+    const char* query = SEARCH.searchBar.textState.buffer;
+    SEARCH.searchResultCount = searchWordsByRegex(query, ...);
+    if (SEARCH.searchResultCount == 0)
+        SEARCH.searchResultCount = searchWordsSimple(query, ...);
+}
+```
+
+**修复方案：** 提取为一个 `static void doSearch(void)` 函数：
+
+```c
+static void doSearch(void) {
+    const char* query = SEARCH.searchBar.textState.buffer;
+    if (strlen(query) == 0) return;
+    SEARCH.searchResultCount = searchWordsByRegex(query, ...);
+    if (SEARCH.searchResultCount == 0)
+        SEARCH.searchResultCount = searchWordsSimple(query, ...);
+}
+```
+
+然后在按钮回调和自动搜索处都调用 `doSearch()`。
+
+---
+
+### 11. 统一列表项高度
+
+**当前不一致情况：**
+- `UIWordListView()` 使用 `itemHeight = 50.0f`（`raylib_word_ui.c` 第 1114 行）
+- `MenuLearn_Show()` 使用 `60.0f`（`page_learn.c` 第 33 行）
+- `MenuWordManager_Show()` 使用 `40.0f`（`page_word_manager.c` 第 23 行）
+
+这导致不同页面的列表视觉上高度不一致。
+
+**修复方案：** 在 `config.h` 中添加：
+```c
+#define LIST_ITEM_HEIGHT   50    // 列表项标准高度
+```
+
+然后所有页面使用这个宏。
+
+---
+
+### 12. 从 `MenuHome_Show` 移除每帧 O(n) 的已掌握统计
+
+**文件：** `src/ui/pages/page_home.c` 第 29~32 行
+
+每次重绘都遍历全部 100 个单词统计已掌握数。在 `page_learn.c` 和 `page_plan.c` 中也有同样的遍历。
+
+**快速修复方案（5分钟）：** 不需要大的架构改动，保持现状即可。因为单词数上限 100，O(n) 遍历的性能损耗可忽略不计。
+
+---
+
+## 🟠 中等（30分钟左右）
+
+### 13. 修复 `strtok()` 非线程安全
+
+**出现位置（3个文件）：**
+
+| 文件 | 行号 |
+|------|------|
+| `src/modules/words.c` | 第 134, 237 行 |
+| `src/modules/account.c` | 第 131 行 |
+| `src/modules/plan.c` | 第 132 行 |
+
+**修复方案：** 使用条件编译选择线程安全的版本：
+
+```c
+// 在 words.c 顶部添加
+#ifdef _MSC_VER
+    #define STRTOK strtok_s
+#else
+    #define STRTOK strtok_r
+#endif
+
+// 使用
+char* token = STRTOK(line, "|", &saveptr);
+```
+
+完整的修改涉及在 3 个文件中添加 `saveptr` 声明和条件编译宏，大约需要 20 分钟。
+
+---
+
+### 14. 修复 `localtime()` 非线程安全
+
+**出现位置：**
+
+| 文件 | 行号 | 用途 |
+|------|------|------|
+| `src/modules/fonts.c` | 第 549 行 | 格式化时间戳 |
+| `src/modules/plan.c` | 第 103 行 | 获取当天日期 |
+| `src/ui/pages/page_account.c` | 第 69, 75, 77 行 | 显示用户注册/登录时间 |
+
+**修复方案：** 使用条件编译：
+
+```c
+// 替换
+struct tm *tm_info = localtime(&timestamp);
+
+// 为
+struct tm tm_buf;
+#ifdef _MSC_VER
+    localtime_s(&tm_buf, &timestamp);
+#else
+    localtime_r(&timestamp, &tm_buf);
+#endif
 ```
 
 ---
 
-### 9. 除零风险
+### 15. 修复函数指针 `void()` → `void(void)`
 
-**文件：** `src/ui/menu_callbacks.c:821`
+**文件：** `src/core/tree_menu.h` 第 23~24 行，`tree_menu.c` 第 20 行
+
+```c
+void (*show)();    // 应改为 void (*show)(void);
+void (*fun)();
+```
+
+C 语言中空括号表示"未指定参数"（旧式风格），编译器不会做类型检查。
+
+**操作：** 在 3 个位置加上 `void`：
+1. `tree_menu.h:23` — `void (*show)(void);`
+2. `tree_menu.h:24` — `void(*fun)(void);`
+3. `tree_menu.c:20` — `MENU* CreatMenuTreeNode(void(*fun)(void), void (*show)(void))`
+
+---
+
+### 16. 防止除零：`dailyWordCount` 可能为 0
+
+**文件：** `src/ui/pages/page_plan.c` 第 39 行
 
 ```c
 float prog = (float)active->studiedToday / active->dailyWordCount;
 ```
 
-如果 `dailyWordCount` 为 0（创建计划时可能默认值未设置），得到 `inf`。
+如果 `dailyWordCount` 为 0，结果是 `inf`。
 
-**建议：** 加保护：
-
+**修复：**
 ```c
 float prog = active->dailyWordCount > 0
     ? (float)active->studiedToday / active->dailyWordCount
@@ -185,306 +339,129 @@ float prog = active->dailyWordCount > 0
 
 ---
 
-### 10. `strtok()` 非线程安全
+## 🔴 困难（1小时以上）
 
-**出现位置：**
+### 17. `realloc` 返回值未检查（3处）
 
-| 文件 | 行号 |
-|------|------|
-| `src/modules/words.c` | 134, 237 |
-| `src/modules/account.c` | 131 |
-| `src/modules/plan.c` | 132 |
-
-`strtok` 使用静态内部缓冲区，不可重入。虽然目前是单线程应用，但为未来兼容应考虑改用 `strtok_r`（POSIX）或 `strtok_s`（C11 / MSVC）。
-
----
-
-### 11. 字体字形预加载重复计算
-
-**文件：** `src/modules/fonts.c:348-386`
-
-`loadFonts()` 对 `allChinese` 和 `wordChars` 分别调用两次 `LoadCodepoints()`（一次为中文字体，一次为合并字体），结果完全一样。
-
-**建议：** 只需计算一次，结果复用。
-
----
-
-### 12. 每帧重复 O(n) 遍历计算统计值
-
-**文件：** `src/ui/menu_callbacks.c`
-
-- `MenuHome_Show()` 第 65 行：遍历所有单词统计已掌握数
-- `MenuLearn_Show()` 第 148 行：同样统计
-- `MenuProgress_Show()` 第 1034 行：同样统计
-
-每次重绘都 O(n) 扫描。这些页面不共存在同一个帧上，但每次进入页面都重新计算。
-
-**建议：** 在 AppState 中缓存一个 `masteredCount`，在用户点击"认识"/"不认识"后增量更新，避免 O(n) 每帧扫描。
-
----
-
-### 13. `config.h` 中有大量未使用的宏
-
-| 宏 | 位置 | 状态 |
-|----|------|------|
-| `COLOR_BLACK` / `WHITE` / `RED` 等 | config.h:24-33 | **未使用**（实际颜色来自 raylib_word_ui.c） |
-| `THEME_PRIMARY` / `SUCCESS` 等 | config.h:36-40 | **未使用** |
-| `OPACITY_DIM` / `NORMAL` / `BRIGHT` | config.h:43-45 | **未使用** |
-| `TEST_TIME_LIMIT` | config.h:92 | **未使用（保留供未来开发）** |
-
-**建议：** 删除或标记为 future use。
-
----
-
-### 14. 全局变量 `g_learnScrollOffset` 已死代码
-
-**文件：** `src/modules/words.c:41-42`
+**文件：**
+- `src/modules/words.c` 第 128, 505 行
+- `src/modules/fonts.c` 第 392 行
 
 ```c
-float g_learnScrollOffset = 0;  // 当前未使用，由 LearnState 管理
+g_wordLibrary = realloc(g_wordLibrary, newSize);
 ```
 
-注释已说明未使用，应删除。
+如果 `realloc` 返回 NULL（内存不足），原始指针丢失，造成泄漏。
 
----
-
-### 15. `AppState_Reset()` 未在任何地方调用
-
-**文件：** `src/core/app_state.c:75-94`
-
-定义了完整的 Reset 函数但从未被调用，是死代码。
-
-**建议：** 如果以后计划添加"重新开始学习"功能可保留，否则删除。
-
----
-
-### 16. `src/` 根目录存在空文件
-
-```
-src/account.h       (0 字节)  ← 空的，实际在 src/modules/account.h
-src/plan.c          (0 字节)  ← 空的
-src/plan.h          (0 字节)  ← 空的
-src/words.c         (0 字节)  ← 空的
-src/fonts.c         (0 字节)  ← 空的
-```
-
-这些是文件重组时残留的，应删除。
-
----
-
-## 🟢 低危 — 建议长期优化
-
-### 17. 命名风格不统一
-
-混用三种风格：
-- **PascalCase：** `AppState_Init`, `MenuHome_Show`, `UIButton`
-- **snake_case：** `loadWordsFromFile`, `shuffleArray`
-- **匈牙利前缀：** `g_app`, `g_wordCount`（`g_` 表示全局）
-- **混合：** `g_pPlanState`, `g_wmState`
-
-**建议：** 选一种风格全局统一。公共 API 用 `PascalCase`，内部静态函数用 `snake_case`。
-
----
-
-### 18. 变量命名过于简略
-
-**文件：** `src/ui/menu_callbacks.c`
-
-- `cr` → `contentRect`
-- `sv` → `scrollView`
-- `bl` → `buttonLayout`
-- `ft` → `formTitle`
-- `l1` / `i1` / `l2` / `i2` → `labelRect` / `inputRect`
-
-**建议：** 避免单字母/两字母缩写，除非是局部循环变量。
-
----
-
-### 19. `main.c` 未使用 `config.h` 中的 `WINDOW_TITLE`
+**修复方案（比较复杂）：** 需要用临时变量保存返回值：
 
 ```c
-// config.h 第 16 行已定义：
-#define WINDOW_TITLE  u8"背单词软件"
-
-// 但 main.c 第 41 行硬编码：
-InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, u8"背单词软件");
-```
-
-**建议：** 改为 `InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);`
-
----
-
-### 20. `localtime()` 非线程安全
-
-**出现位置：**
-- `src/modules/fonts.c:549`
-- `src/ui/menu_callbacks.c:1444, 1541, 1553`
-- `src/modules/plan.c:103`
-
-**建议：** 使用 `localtime_r()`（POSIX）或 `localtime_s()`（MSVC）替换。
-
----
-
-### 21. `atoi`/`atol` 无法检测解析错误
-
-**出现位置：** `src/modules/account.c:141-144`
-
-```c
-u->createdTime = (time_t)atol(fields[2]);
-```
-
-解析失败时返回 0，无法区分"值是 0"和"解析失败"。
-
-**建议：** 使用 `strtol()/strtoll()` 配合 `errno` 检查。
-
----
-
-### 22. `hash_string` 使用 `int c` 可能导致 UB
-
-**文件：** `src/modules/account.c:51`
-
-```c
-int c;
-while ((c = *str++)) {
-```
-
-当 `char` 为有符号类型时，高 ASCII 字符（≥ 0x80）转为负数，可能影响哈希结果。
-
-**建议：** `unsigned char c;`
-
----
-
-### 23. 搜索逻辑重复
-
-**文件：** `src/ui/menu_callbacks.c:1817-1836`
-
-搜索按钮和自动搜索的触发逻辑几乎完全一样，重复约 10 行代码。
-
-**建议：** 提取为公共函数：
-
-```c
-static void triggerSearch(void) {
-    const char* query = SEARCH.searchBar.textState.buffer;
-    SEARCH.searchResultCount = searchWordsByRegex(query, ...);
-    if (SEARCH.searchResultCount == 0) {
-        SEARCH.searchResultCount = searchWordsSimple(query, ...);
-    }
+WordEntry* tmp = realloc(g_wordLibrary, newSize);
+if (tmp == NULL) {
+    // 处理错误，g_wordLibrary 仍然有效
+    printf("ERROR: 内存不足\n");
+    return false;
 }
+g_wordLibrary = tmp;
 ```
+
+涉及修改两个文件中的 3 处代码，约需 30 分钟，还需要考虑出错时的回退逻辑。
 
 ---
 
-### 24. 登录表单每帧双拷贝
+### 18. 浅拷贝导致 Use-After-Free 风险
 
-**文件：** `src/ui/menu_callbacks.c:1605-1607`
+**文件：** `src/modules/words.c` 第 583 行
 
 ```c
-strncpy(g_loginForm.userState.buffer, g_loginForm.username, ...);  // 拷入
-UITextBox(&g_loginForm.userState, ...);
-strncpy(g_loginForm.username, g_loginForm.userState.buffer, ...);  // 拷出
+g_words[i].entry = g_wordLibrary[i];  // 浅拷贝指针
 ```
 
-每帧将 username 从 struct 拷到 textbox buffer，再从 buffer 拷回 struct。
+`WordEntry` 包含 `char*` 指针。两个数组共享同一块 `strdup` 分配的内存。当 `deleteWordFromLibrary()` 释放这些指针后，`g_words` 中的指针变成悬空指针。
 
-**建议：** 直接用 `UITextBoxState.buffer` 作为唯一数据源，不需要 struct 中的 `username`/`password` 字段。
+**修复方案（比较复杂）：** 改为深拷贝，或确保删除后立即同步。
 
----
-
-### 25. `build.sh` 中的 Linux 特定命令
-
-**文件：** `build.sh:45,81,85`
-
-```bash
-ldconfig -p    # Linux 专用
-nproc          # Linux 专用（macOS 用 sysctl -n hw.logicalcpu）
-chmod +x       # Linux/Unix 可用
-ldd            # Linux/Unix 可用
+深拷贝实现：
+```c
+// reloadWords() 中
+g_words[i].entry.word = strdup(g_wordLibrary[i].word);
+g_words[i].entry.phonetic = strdup(g_wordLibrary[i].phonetic);
+// ... 其他字段
 ```
 
-**建议：** 添加 macOS 兼容判断。
+配套还需要在 `AppState_Deinit()` 或适当的地方释放深拷贝的内存。
 
 ---
 
-### 26. `UIWordListView` 与学单词模式的列表高度不一致
+### 19. 文件解析失败时内存泄漏
 
-- `UIWordListView()` 使用 `itemHeight = 50.0f`
-- `MenuLearn_Show()` 使用 `60.0f`
-
-导致视觉上不一致。
-
-**建议：** 统一定义一个列表项高度的常量。
-
----
-
-### 27. 硬编码坐标过多
-
-几乎所有页面使用硬编码像素坐标（如 `Rectangle cardRect = {SCREEN_WIDTH/2 - 220, 160, 440, 264}`），窗口大小改变时布局错乱。
-
-**建议：** 使用相对布局计算，定义侧边栏宽度、顶部栏高度、卡片比例等常量到 `config.h`。
-
----
-
-### 28. `saveProgress()` 返回值被忽略
-
-**文件：** `src/ui/menu_callbacks.c:375,392`
+**文件：** `src/modules/words.c` 第 140~148 行
 
 ```c
-saveProgress();  // 返回值是 void，但实际写入可能失败
+if (fieldIdx >= 3) {
+    // 使用 fields...
+} // 没有 else 分支：如果 fieldIdx < 3，strdup 的 fields[0~2] 泄漏了
 ```
 
-用户学习进度可能在静默中丢失。
-
-**建议：** `saveProgress()` 改为 `bool` 返回值，调用处检查。
+**修复方案：** 添加 else 分支释放已分配的字段。
 
 ---
 
-## 💡 架构建议
+### 20. 初始化逻辑重复：`main.c` vs `AppState_Init()`
 
-### 建议一：页面拆分
+`main.c` 手动初始化 REVIEW、TEST 等状态 → 立即调用 `AppState_Init()` 又初始化一遍 → `main.c` 的值覆盖后者。虽然最终结果正确，但逻辑混乱。
 
-将 `menu_callbacks.c` 按页面拆分成独立文件，每个文件对应一个页面：
-
-```
-src/ui/pages/
-├── page_home.c
-├── page_learn.c
-├── page_card_review.c
-├── page_select_word.c
-├── page_test.c
-├── page_search.c
-├── page_plan_root.c
-├── page_plan_manager.c
-├── page_progress.c
-├── page_settings.c
-├── page_account.c
-├── page_login.c
-├── page_register.c
-├── page_word_manager.c
-└── pages.h            ← 统一导出所有页面函数
-```
-
-### 建议二：配置文件统一
-
-将 `config.h`、`account.h` 中的常量（`MAX_USERS`、`MAX_WORDS`、`ACCOUNT_FILE` 等）统一到一个配置文件中，避免分散定义。
-
-### 建议三：测试框架
-
-当前项目没有任何单元测试。建议为以下核心模块添加测试：
-- `words.c` — 单词加载、搜索、进度管理
-- `account.c` — 注册/登录逻辑
-- `plan.c` — 计划创建/日期检测
-
-可以使用简单的 C 测试框架（如 [Unity](https://github.com/ThrowTheSwitch/Unity) 或 [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html)）。
-
-### 建议四：错误处理统一
-
-目前错误处理方式不一致：
-- 有些地方返回 `bool`
-- 有些地方返回 `void` 并 `printf`
-- 有些地方什么都不做
-
-建议统一错误处理策略：核心函数返回错误码，上层决定如何处理。
+**修复方案：** 将 REVIEW 和 TEST 的初始化统一移到 `AppState_Init()` 中，`main.c` 只保留业务逻辑（如从文件加载数据）。涉及较大改动。
 
 ---
 
-> 文档版本：v1.0 — 基于代码提交 c57e9e0 的审查
+### 21. 字体字形预加载双重计算
+
+**文件：** `src/modules/fonts.c`
+
+对 `allChinese` 和 `wordChars` 分别调用两次 `LoadCodepoints()`（一次为中文字体，一次为合并字体），结果完全一样。
+
+**修复方案：** 将第一次 `LoadCodepoints` 的结果保存下来复用。涉及 `loadFonts()` 函数的结构调整。
+
+---
+
+### 22. 密码哈希安全性（djb2 算法）
+
+**文件：** `src/modules/account.c` 第 48~88 行
+
+使用 djb2 哈希（哈希表用的非加密算法），未加盐（no salt），彩虹表可逆向。
+
+**修复方案：** 对于本地学习软件风险可控（代码注释已说明"非加密安全"）。如果要改进，需要：
+1. 引入 SHA-256 库
+2. 加盐机制
+3. 重新设计账号文件格式（需兼容旧数据迁移）
+
+**建议：** 保持现状，文档已声明仅适用于本地环境。
+
+---
+
+## 💡 架构建议（长期规划）
+
+### 23. 统一信息源：登录表单双拷贝
+
+**文件：** `src/ui/pages/page_account.c`
+
+每帧将 username 从 struct 拷到 textbox buffer，再从 buffer 拷回 struct，重复劳动。
+
+**改进方案：** 直接用 `UITextBoxState.buffer` 作为唯一数据源，删除 struct 中冗余的 `username`/`password` 字段。需要改动 MenuLogin_Show 和 MenuRegister_Show 两个函数。
+
+### 24. `config.h` 中的硬编码颜色未使用
+
+✅ 已列入 #3。
+
+### 25. 命名风格统一
+
+当前混用 `AppState_Init`（PascalCase）、`loadWordsFromFile`（snake_case）、`g_` 前缀（匈牙利）。属于长期规范，建议在大型重构时统一清理。
+
+### 26. 单元测试
+
+目前没有任何测试。建议后期使用 [Unity](https://github.com/ThrowTheSwitch/Unity) 测试框架为核心模块（account、words、plan）添加测试。
+
+---
+
+> 文档版本：v2.0 — 已按修复难度重新排序
