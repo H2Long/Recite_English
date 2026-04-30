@@ -38,7 +38,7 @@
 
 int main(void) {
     // 初始化 raylib 窗口
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, u8"背单词软件");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
     SetTargetFPS(60);
 
     // --------------------------------------------------------------------
