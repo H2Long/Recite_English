@@ -3,10 +3,30 @@ project(main_c)
 
 set(CMAKE_C_STANDARD 11)
 
-include_directories(/usr/local/include)
+# 跨平台查找 raylib
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(raylib QUIET raylib)
+endif()
 
-# 使用 Ninja 生成器
-set(CMAKE_GENERATOR ninja)
+if(raylib_FOUND)
+    include_directories(${raylib_INCLUDE_DIRS})
+    link_directories(${raylib_LIBRARY_DIRS})
+else()
+    # 备选：直接找头文件和库
+    find_path(raylib_INCLUDE_DIR raylib.h)
+    find_library(raylib_LIBRARY raylib)
+    if(raylib_INCLUDE_DIR)
+        include_directories(${raylib_INCLUDE_DIR})
+    endif()
+    if(raylib_LIBRARY)
+        set(raylib_LIBRARIES ${raylib_LIBRARY})
+    else()
+        # 如果都没找到，fallback 到系统路径
+        include_directories(/usr/local/include /usr/include)
+        set(raylib_LIBRARIES raylib)
+    endif()
+endif()
 
 add_executable(main_c
         src/main.c
@@ -20,10 +40,16 @@ add_executable(main_c
         src/ui/raylib_word_ui.c
         src/ui/menu_callbacks.c)
 
-# 添加各层级目录为 include 搜索路径
-target_include_directories(main_c PRIVATE src/core)
-target_include_directories(main_c PRIVATE src/modules)
-target_include_directories(main_c PRIVATE src/ui)
+target_include_directories(main_c PRIVATE src/core src/modules src/ui)
 
-target_link_libraries(main_c PRIVATE raylib)
-add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)
+# 跨平台编译选项
+if(MSVC)
+    # MSVC: 启用 UTF-8 源码编码，禁用 strdup 警告
+    target_compile_options(main_c PRIVATE /utf-8)
+    target_compile_definitions(main_c PRIVATE _CRT_NONSTDC_NO_DEPRECATE)
+else()
+    # GCC/Clang: 指定 UTF-8 源码和执行编码
+    target_compile_options(main_c PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+endif()
+
+target_link_libraries(main_c PRIVATE ${raylib_LIBRARIES})

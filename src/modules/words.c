@@ -8,8 +8,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <regex.h>
 #include <ctype.h>
+
+// strdup 兼容性：MSVC 中名为 _strdup
+#ifdef _MSC_VER
+#define strdup _strdup
+#endif
 
 /**
  * g_wordLibrary - 单词库动态数组
@@ -276,48 +280,143 @@ void clearProgress(void) {
 }
 
 // ============================================================================
-// 单词搜索功能（支持正则表达式）
+// 单词搜索功能（跨平台实现，不依赖 POSIX regex.h）
 // ============================================================================
 
-#include <regex.h>
+/**
+ * matchPattern - 简单的通配符模式匹配（不区分大小写）
+ * 
+ * 支持的语法：
+ *   ^pattern  — 匹配字符串开头
+ *   pattern$  — 匹配字符串结尾
+ *   *         — 匹配任意数量的字符
+ *   ?         — 匹配单个字符
+ *   普通文本  — 子串匹配（不区分大小写）
+ * 
+ * 示例：
+ *   "^ab"     → 以 "ab" 开头的单词
+ *   "ing$"    → 以 "ing" 结尾的单词
+ *   "a*c"     → 包含 "a" 和 "c" 且中间有任意字符的单词
+ *   "ab??rd"  → "ab" + 任意2字符 + "rd"
+ */
+static bool matchPattern(const char* word, const char* pattern) {
+    // 检查是否为 ^ 开头或 $ 结尾的模式
+    bool anchoredStart = (pattern[0] == '^');
+    bool anchoredEnd = false;
+    int patLen = strlen(pattern);
+    if (patLen > 0 && pattern[patLen - 1] == '$') {
+        anchoredEnd = true;
+        patLen--;
+    }
+    
+    // 跳过开头的 ^
+    const char* p = pattern + (anchoredStart ? 1 : 0);
+    int remainingLen = patLen - (anchoredStart ? 1 : 0);
+    
+    // 如果没有通配符且无锚点，使用简单的子串匹配
+    if (!anchoredStart && !anchoredEnd && !strchr(p, '*') && !strchr(p, '?')) {
+        // 不区分大小写子串匹配
+        char wordLower[256], patLower[256];
+        strncpy(wordLower, word, sizeof(wordLower) - 1);
+        wordLower[sizeof(wordLower) - 1] = '\0';
+        strncpy(patLower, p, sizeof(patLower) - 1);
+        patLower[sizeof(patLower) - 1] = '\0';
+        for (int i = 0; wordLower[i]; i++) wordLower[i] = tolower(wordLower[i]);
+        for (int i = 0; patLower[i]; i++) patLower[i] = tolower(patLower[i]);
+        return strstr(wordLower, patLower) != NULL;
+    }
+    
+    // 带通配符和锚点的递归匹配
+    // 每次匹配一个碎片：普通字符串或通配符
+    const char* w = word;
+    const char* pat = p;
+    int wLen = strlen(word);
+    int totalPatLen = remainingLen;
+    
+    // 构建简化后的模式（移除连续 *）
+    char simplePat[256];
+    int si = 0;
+    for (int i = 0; pat[i] && i < totalPatLen; i++) {
+        if (pat[i] == '*' && i > 0 && pat[i-1] == '*') continue;
+        simplePat[si++] = pat[i];
+    }
+    simplePat[si] = '\0';
+    
+    // 将模式按 * 分割，逐段匹配
+    char segments[16][64];
+    int segCount = 0;
+    char segBuf[256];
+    strncpy(segBuf, simplePat, sizeof(segBuf) - 1);
+    char* segToken = strtok(segBuf, "*");
+    while (segToken != NULL && segCount < 16) {
+        strncpy(segments[segCount], segToken, sizeof(segments[0]) - 1);
+        segments[segCount][sizeof(segments[0]) - 1] = '\0';
+        // 转为小写
+        for (int j = 0; segments[segCount][j]; j++)
+            segments[segCount][j] = tolower(segments[segCount][j]);
+        segCount++;
+        segToken = strtok(NULL, "*");
+    }
+    
+    if (segCount == 0) {
+        // 只有通配符，匹配一切
+        return true;
+    }
+    
+    // 判断是否以 * 开头
+    bool startsWithStar = (simplePat[0] == '*');
+    
+    // 判断是否以 * 结尾
+    bool endsWithStar = (simplePat[si - 1] == '*');
+    
+    // 将单词转为小写
+    char wordLower[256];
+    strncpy(wordLower, word, sizeof(wordLower) - 1);
+    wordLower[sizeof(wordLower) - 1] = '\0';
+    for (int j = 0; wordLower[j]; j++) wordLower[j] = tolower(wordLower[j]);
+    int wl = strlen(wordLower);
+    
+    // 检查每个片段是否按顺序出现在单词中
+    int pos = 0;
+    for (int s = 0; s < segCount; s++) {
+        char* found = strstr(wordLower + pos, segments[s]);
+        if (found == NULL) return false;
+        
+        // 第一个片段必须从开头匹配（如果没有前导 *）
+        if (s == 0 && !startsWithStar && found != wordLower) return false;
+        
+        pos = (int)(found - wordLower) + strlen(segments[s]);
+    }
+    
+    // 最后一个片段必须匹配到结尾（如果没有后导 *）
+    if (!endsWithStar && pos != wl) return false;
+    
+    return true;
+}
 
 /**
- * 使用正则表达式搜索单词
- * @param pattern 搜索模式（支持正则表达式）
- * @param results 存放搜索结果索引的数组
+ * searchWordsByRegex - 简单的通配符模式搜索（跨平台）
+ * 
+ * 支持 ^ 开头 / $ 结尾 / * 任意字符 / ? 单个字符 的模式匹配。
+ * 之前在 Linux 上使用 POSIX regex.h，但该头文件在 Windows 上不可用，
+ * 因此改用此纯 C 实现的通配符匹配器。
+ * 
+ * @param pattern 搜索模式（支持 ^ * ? $ 通配符语法）
+ * @param results 存放匹配单词索引的数组
  * @param maxResults 最大结果数量
- * @return 匹配到的结果数量
+ * @return 匹配到的单词数量
  */
 int searchWordsByRegex(const char* pattern, int* results, int maxResults) {
     if (pattern == NULL || strlen(pattern) == 0) {
         return 0;
     }
-
-    regex_t regex;
-    int ret;
+    
     int count = 0;
-
-    // 编译正则表达式（不区分大小写）
-    ret = regcomp(&regex, pattern, REG_EXTENDED | REG_ICASE);
-    if (ret != 0) {
-        // 正则表达式编译失败，尝试简单匹配
-        for (int i = 0; i < g_wordProgressCount && count < maxResults; i++) {
-            if (strstr(g_words[i].entry.word, pattern) != NULL) {
-                results[count++] = i;
-            }
-        }
-        return count;
-    }
-
-    // 搜索所有单词
     for (int i = 0; i < g_wordProgressCount && count < maxResults; i++) {
-        ret = regexec(&regex, g_words[i].entry.word, 0, NULL, 0);
-        if (ret == 0) {
+        if (matchPattern(g_words[i].entry.word, pattern)) {
             results[count++] = i;
         }
     }
-
-    regfree(&regex);
     return count;
 }
 

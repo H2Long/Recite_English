@@ -135,8 +135,18 @@ void loadProgress(void);
 void clearProgress(void);
 
 /**
- * 使用正则表达式搜索单词
- * @param pattern 搜索模式（支持正则表达式）
+ * searchWordsByRegex - 使用通配符模式搜索单词（跨平台，不依赖 POSIX regex）
+ * 
+ * 支持的语法：
+ *   ^pattern  匹配以 pattern 开头的单词
+ *   pattern$  匹配以 pattern 结尾的单词
+ *   *         匹配任意数量的字符（通配符）
+ *   ?         匹配单个字符
+ *   普通文本  不区分大小写的子串匹配
+ * 
+ * 示例："^ab" 匹配所有以 "ab" 开头的单词，"ing$" 匹配以 "ing" 结尾的单词。
+ * 
+ * @param pattern 搜索模式
  * @param results 存放搜索结果索引的数组
  * @param maxResults 最大结果数量
  * @return 匹配到的结果数量

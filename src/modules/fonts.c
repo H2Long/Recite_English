@@ -102,19 +102,46 @@ static inline bool isLatinExtended(int c) {
 
 // 加载字体
 // 按顺序尝试加载：
-// 1. 英文字体：DejaVu 系列
-// 2. IPA 字体：日文字体 > Linux 字体 > Noto > DejaVu
-// 3. 中文字体：NotoSansCJK > DroidSansFallback > 黑体
+// 1. 英文字体：各平台系统字体
+// 2. IPA 字体：各平台候选
+// 3. 中文字体：项目自带字体 > 系统字体
 // 4. 合并字体：中文 + IPA + ASCII，用于统一绘制
 void loadFonts(void) {
     g_mergedFont = GetFontDefault();
     g_latinFont = GetFontDefault();
     
+    // ====================================================================
+    // 英文字体候选列表（按平台区分）
+    // ====================================================================
+#if defined(_WIN32)
+    const char* englishCandidates[] = {
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/times.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/verdana.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf",
+    };
+#elif defined(__APPLE__)
+    const char* englishCandidates[] = {
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Times.ttc",
+        "/System/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Courier.ttc",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/Library/Fonts/Arial.ttf",
+        "/Library/Fonts/Times New Roman.ttf",
+    };
+#else
     const char* englishCandidates[] = {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
     };
+#endif
     for (int i = 0; i < 3; i++) {
         if (fileExists(englishCandidates[i])) {
             int asciiGlyphs[127 - 32];
@@ -131,6 +158,27 @@ void loadFonts(void) {
         g_englishFont = GetFontDefault();
     }
     
+    // ====================================================================
+    // IPA/音标字体候选列表（按平台区分）
+    // ====================================================================
+#if defined(_WIN32)
+    const char* ipaCandidates[] = {
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/times.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/seguiemj.ttf",
+    };
+#elif defined(__APPLE__)
+    const char* ipaCandidates[] = {
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Times.ttc",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Apple Symbols.ttf",
+        "/Library/Fonts/Arial.ttf",
+    };
+#else
     const char* ipaCandidates[] = {
         "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf",
         "/usr/share/fonts/opentype/ipafont-mincho/ipamp.ttf",
@@ -155,6 +203,7 @@ void loadFonts(void) {
         "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
         "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf",
     };
+#endif
     int ipaCount = sizeof(ipaCandidates) / sizeof(ipaCandidates[0]);
     for (int i = 0; i < ipaCount; i++) {
         if (fileExists(ipaCandidates[i])) {
@@ -207,13 +256,40 @@ void loadFonts(void) {
         printf("WARNING: IPA font load failed, using default\n");
     }
     
-    // 加载中文字体
+    // ====================================================================
+    // 中文字体候选列表（按平台区分）
+    // ====================================================================
+#if defined(_WIN32)
     const char* candidates[] = {
         "./data/fonts/NotoSansCJK.otf",
-        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "C:/Windows/Fonts/msyh.ttc",        // 微软雅黑
+        "C:/Windows/Fonts/msyhbd.ttc",      // 微软雅黑加粗
+        "C:/Windows/Fonts/simsun.ttc",      // 宋体
+        "C:/Windows/Fonts/simhei.ttf",      // 黑体
+        "C:/Windows/Fonts/yahei.ttf",
         "./simhei.ttf",
         "./SimHei.ttf",
     };
+#elif defined(__APPLE__)
+    const char* candidates[] = {
+        "./data/fonts/NotoSansCJK.otf",
+        "/System/Library/Fonts/PingFang.ttc",       // 苹方
+        "/System/Library/Fonts/STHeiti Light.ttc",  // 华文黑体
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    };
+#else
+    const char* candidates[] = {
+        "./data/fonts/NotoSansCJK.otf",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "./simhei.ttf",
+        "./SimHei.ttf",
+    };
+#endif
 
     const char *fontPath = NULL;
     for (int i = 0; i < 4; i++) {
