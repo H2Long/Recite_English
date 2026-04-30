@@ -102,19 +102,23 @@ static inline bool isLatinExtended(int c) {
 
 // 加载字体
 // 按顺序尝试加载：
-// 1. 英文字体：各平台系统字体
-// 2. IPA 字体：各平台候选
-// 3. 中文字体：项目自带字体 > 系统字体
-// 4. 合并字体：中文 + IPA + ASCII，用于统一绘制
+// 1. 优先用 data/fonts/ 下的打包字体（确保跨平台一致性）
+// 2. 回退到各平台系统字体
+// 3. 最终回退到 raylib 默认字体
 void loadFonts(void) {
     g_mergedFont = GetFontDefault();
     g_latinFont = GetFontDefault();
     
     // ====================================================================
-    // 英文字体候选列表（按平台区分）
+    // 英文字体候选列表
+    // 优先使用打包的 data/fonts/ 目录，再回退到系统字体
     // ====================================================================
-#if defined(_WIN32)
     const char* englishCandidates[] = {
+        // 打包字体（保证跨平台一致性）
+        "./data/fonts/DejaVuSans.ttf",
+        "./data/fonts/DejaVuSansMono.ttf",
+#if defined(_WIN32)
+        // Windows 系统字体
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/times.ttf",
         "C:/Windows/Fonts/calibri.ttf",
@@ -122,9 +126,8 @@ void loadFonts(void) {
         "C:/Windows/Fonts/verdana.ttf",
         "C:/Windows/Fonts/consola.ttf",
         "C:/Windows/Fonts/cour.ttf",
-    };
 #elif defined(__APPLE__)
-    const char* englishCandidates[] = {
+        // macOS 系统字体
         "/System/Library/Fonts/Helvetica.ttc",
         "/System/Library/Fonts/Times.ttc",
         "/System/Library/Fonts/Arial.ttf",
@@ -132,17 +135,17 @@ void loadFonts(void) {
         "/System/Library/Fonts/Menlo.ttc",
         "/Library/Fonts/Arial.ttf",
         "/Library/Fonts/Times New Roman.ttf",
-    };
 #else
-    const char* englishCandidates[] = {
+        // Linux 系统字体
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-    };
 #endif
-    for (int i = 0; i < 3; i++) {
+    };
+    int englishCount = sizeof(englishCandidates) / sizeof(englishCandidates[0]);
+    for (int i = 0; i < englishCount; i++) {
         if (fileExists(englishCandidates[i])) {
             int asciiGlyphs[127 - 32];
             for (int c = 32; c < 127; c++) asciiGlyphs[c - 32] = c;
@@ -159,27 +162,27 @@ void loadFonts(void) {
     }
     
     // ====================================================================
-    // IPA/音标字体候选列表（按平台区分）
+    // IPA/音标字体候选列表
+    // 优先使用打包的 data/fonts/ 目录，再回退到各平台系统字体
     // ====================================================================
-#if defined(_WIN32)
     const char* ipaCandidates[] = {
+        // 打包字体（保证跨平台一致性）
+        "./data/fonts/DejaVuSans.ttf",
+        "./data/fonts/DejaVuSansMono.ttf",
+#if defined(_WIN32)
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/times.ttf",
         "C:/Windows/Fonts/calibri.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/consola.ttf",
         "C:/Windows/Fonts/seguiemj.ttf",
-    };
 #elif defined(__APPLE__)
-    const char* ipaCandidates[] = {
         "/System/Library/Fonts/Helvetica.ttc",
         "/System/Library/Fonts/Times.ttc",
         "/System/Library/Fonts/Menlo.ttc",
         "/System/Library/Fonts/Apple Symbols.ttf",
         "/Library/Fonts/Arial.ttf",
-    };
 #else
-    const char* ipaCandidates[] = {
         "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf",
         "/usr/share/fonts/opentype/ipafont-mincho/ipamp.ttf",
         "/usr/share/fonts/opentype/ipaexfont-mincho/ipaexm.ttf",
@@ -202,8 +205,8 @@ void loadFonts(void) {
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
         "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf",
-    };
 #endif
+    };
     int ipaCount = sizeof(ipaCandidates) / sizeof(ipaCandidates[0]);
     for (int i = 0; i < ipaCount; i++) {
         if (fileExists(ipaCandidates[i])) {
@@ -225,28 +228,6 @@ void loadFonts(void) {
                 g_latinFont = f;
                 printf("INFO: IPA font loaded: %s with %d glyphs\n", ipaCandidates[i], ipaGlyphCount);
                 break;
-            }
-        }
-    }
-    
-    if (g_latinFont.texture.id == 0 || g_latinFont.recs == NULL) {
-        for (int i = 0; i < 3; i++) {
-            if (fileExists(englishCandidates[i])) {
-                int ipaGlyphs[1300];
-                int ipaGlyphCount = 0;
-                for (int c = 0x0250; c <= 0x02AF && ipaGlyphCount < 100; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                for (int c = 0x02B0; c <= 0x02FF && ipaGlyphCount < 200; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                for (int c = 0x0300; c <= 0x036F && ipaGlyphCount < 400; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                for (int c = 0x0370; c <= 0x03FF && ipaGlyphCount < 600; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                for (int c = 0x1D00; c <= 0x1DBF && ipaGlyphCount < 900; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                for (int c = 0x1E00; c <= 0x1EFF && ipaGlyphCount < 1100; c++) ipaGlyphs[ipaGlyphCount++] = c;
-                
-                Font f = LoadFontEx(englishCandidates[i], 32, ipaGlyphs, ipaGlyphCount);
-                if (f.texture.id != 0 && f.recs != NULL) {
-                    g_latinFont = f;
-                    printf("INFO: IPA font (DejaVu fallback) loaded: %s with %d glyphs\n", englishCandidates[i], ipaGlyphCount);
-                    break;
-                }
             }
         }
     }
@@ -291,8 +272,9 @@ void loadFonts(void) {
     };
 #endif
 
+    int chineseCount = sizeof(candidates) / sizeof(candidates[0]);
     const char *fontPath = NULL;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < chineseCount; i++) {
         if (fileExists(candidates[i])) {
             fontPath = candidates[i];
             break;
