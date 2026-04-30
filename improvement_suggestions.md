@@ -369,3 +369,313 @@
 | 滚动条样式 | 深色模式下使用适配的滚动条颜色 | ⭐⭐ 中 |
 | 渐变过渡 | 主题切换时使用渐变过渡动画，而非突兀跳变 | ⭐⭐ 中 |
 | OLED 纯黑模式 | 为 OLED 屏幕提供纯黑色背景（#000000）省电 | ⭐⭐ 中 |
+
+---
+
+## 十一、代码质量优化建议（基于实际开发的 Bug 经验）
+
+> 以下建议来自项目开发过程中实际遇到的 Bug 和调试经验，具有很高的实践价值。
+
+### 1. 统一状态绑定模式（防止重复 Bug）
+
+**现状**：`account.c` 和 `plan.c` 都使用了独立的库 + `AppState` 绑定的模式，但编写时出现了相同的 Bug——内部 `static` 状态与 `AppState` 不同步。
+
+**建议**：建立统一的状态注册机制
+
+```c
+// 方案：定义标准化的状态注册接口
+typedef void (*StateBindFunc)(void* appState);
+
+// 在 AppState_Init 中统一注册
+typedef struct {
+    const char* name;
+    void* internalState;      // 库内部状态指针
+    int stateSize;            // 状态结构体大小
+    StateBindFunc bindFunc;   // 绑定函数
+} StateModule;
+
+void RegisterModule(StateModule* module);
+void InitAllModules(void);    // 批量初始化 + 绑定
+```
+
+**优势**：
+- 新模块只需实现 `bindFunc`，框架自动绑定
+- 避免手动在 `AppState_Init` 中添加绑定调用
+- 统一模块生命周期管理（init/deinit）
+
+---
+
+### 2. 滚动视图位置持久化封装
+
+**现状**：每个使用滚动视图的地方都需要手动声明 `static float` 变量保存滚动位置。词库管理页面和侧边导航栏都因此出过 Bug。
+
+**建议**：封装自动持久化的滚动视图
+
+```c
+// 当前写法（每处手动管理）
+static float g_scrollOffset = 0.0f;
+UIScrollView sv = {0};
+sv.scrollOffset.y = g_scrollOffset;
+// ...
+UIEndScrollView(&sv, STYLE, UI_STATE);
+g_scrollOffset = sv.scrollOffset.y;
+
+// 建议封装
+typedef struct {
+    UIScrollView sv;
+    float* persistedOffset;  // 指向外部 static 变量
+} PersistentScrollView;
+
+void BeginPersistentScrollView(PersistentScrollView* psv, Rectangle viewport, Vector2 contentSize, float* offsetPtr) {
+    psv->persistedOffset = offsetPtr;
+    psv->sv.scrollOffset.y = *offsetPtr;
+    // ... 调用 UIBeginScrollView
+}
+
+void EndPersistentScrollView(PersistentScrollView* psv, UIStyle* style, UIState* state) {
+    UIEndScrollView(&psv->sv, style, state);
+    *psv->persistedOffset = psv->sv.scrollOffset.y;
+}
+```
+
+---
+
+### 3. 全局调试标记系统
+
+**现状**：调试时通过画绿色方块、改变背景色等视觉标记来确认代码分支是否执行。这种方式临时有效，但调试代码需要手动删除或注释，容易遗漏。
+
+**建议**：添加一个简单的调试绘制系统
+
+```c
+// 统一的调试标记
+typedef struct {
+    bool active;
+    Rectangle rect;
+    Color color;
+    int frameCount;       // 显示帧数后自动消失
+} DebugMarker;
+
+void DebugDrawMarker(DebugMarker* marker, float x, float y, float size, Color color, int frames) {
+    marker->active = true;
+    marker->rect = (Rectangle){x, y, size, size};
+    marker->color = color;
+    marker->frameCount = frames;
+}
+
+void DebugRenderMarkers(void) {
+    // 在 EndDrawing 之前调用，绘制所有活跃标记
+    // 帧数到期后自动清除
+}
+```
+
+**优势**：
+- 添加调试标记只需一行 `DebugDrawMarker`
+- 自动过期清除，不会遗忘
+- 可以添加条件编译 `#ifdef DEBUG` 在生产代码中禁用
+
+---
+
+### 4. 输入框焦点管理优化
+
+**现状**：多个 `UITextBox` 同时存在时，点击新输入框后旧输入框的焦点未被清除。原因是 `uistate->focusItem` 被后续组件覆盖，导致旧输入框无法通过比较来清除焦点。
+
+**建议**：在渲染多个输入框前统一清除所有焦点
+
+```c
+// 方案一：批量管理
+void UITextBox_BeginBatch(void) {
+    // 清空所有文本框的焦点
+    // 后续 UITextBox 调用会重新设置焦点
+}
+
+void UITextBox_EndBatch(void) {
+    // 清理工作
+}
+
+// 方案二：更健壮的焦点机制
+// 每个 UITextBox 维护自己的 hasFocus
+// 当鼠标在其他地方按下时自动清除
+// （当前已采用此方案，但可以进一步封装为批量辅助函数）
+```
+
+**推荐**：在词库管理等有多输入框的页面，渲染前调用批量辅助函数统一管理焦点状态。
+
+---
+
+### 5. 字体预加载自动化
+
+**现状**：`allChinese` 字符串需要手动维护，每次新增中文字段后都要检查是否缺少字符。开发过程中多次出现漏加导致字符显示方块的问题。
+
+**建议一**：解析所有源代码自动提取中文字符
+
+```bash
+# 构建脚本中自动生成 allChinese
+grep -ohP '[\x{4e00}-\x{9fff}]' src/*.c src/*.h | sort -u | tr -d '\n' > all_chars.txt
+```
+
+**建议二**：改用手动维护为按模块分段
+
+```c
+// 按功能模块分段，便于维护
+const char* allChinese = 
+    /* UI 基础组件 */ "主菜单学单词背单词..."
+    /* 账号系统 */     "账号密确登录注册..."
+    /* 学习计划 */     "一周入门半月巩固三十天进阶六十天冲刺..."
+    /* 词库管理 */     "词库添删辑编框..."
+    /* 退格键支持 */   "..."
+    ;
+```
+
+**建议三**：在调试模式下，如果检测到中文显示为方块，自动将缺失字符输出到日志。
+
+---
+
+### 6. 字符串操作安全封装
+
+**现状**：大量使用 `snprintf`、`strncpy`、`strdup` 等手动管理字符串。`strncpy` 在某些平台不自动追加 `\0`。
+
+**建议**：封装安全的字符串操作函数
+
+```c
+// 安全字符串拷贝（保证以 \0 结尾）
+void safe_strcpy(char* dst, size_t dstSize, const char* src) {
+    if (dst == NULL || dstSize == 0) return;
+    strncpy(dst, src ? src : "", dstSize);
+    dst[dstSize - 1] = '\0';
+}
+
+// 安全字符串拼接
+void safe_strcat(char* dst, size_t dstSize, const char* src) {
+    size_t curLen = strlen(dst);
+    size_t remain = dstSize - curLen;
+    if (remain > 0) {
+        strncpy(dst + curLen, src ? src : "", remain);
+        dst[dstSize - 1] = '\0';
+    }
+}
+```
+
+---
+
+### 7. 菜单注册模式简化
+
+**现状**：每次新增菜单页面需要修改 4 处代码：
+1. 创建菜单节点
+2. 连接到父节点
+3. 在 `GetMenuItemText` 中添加名称映射
+4. 声明函数
+
+**建议**：改用注册表模式
+
+```c
+typedef struct {
+    const char* name;
+    void (*show)(void);
+} MenuEntry;
+
+// 注册表
+static const MenuEntry g_menuEntries[] = {
+    {u8"学单词", MenuLearn_Show},
+    {u8"背单词", MenuReviewRoot_Show},
+    {u8"查找单词", MenuSearch_Show},
+    {u8"学习计划", MenuPlanRoot_Show},
+    // ...
+};
+
+void InitMenuTree(void) {
+    g_app.rootMenu = CreatMenuTreeNode(NULL, MenuHome_Show);
+    for (int i = 0; i < sizeof(g_menuEntries)/sizeof(g_menuEntries[0]); i++) {
+        MENU* node = CreatMenuTreeNode(NULL, g_menuEntries[i].show);
+        // node 的显示名称可以直接从注册表获取
+        node->displayName = g_menuEntries[i].name;  // 新增字段
+        ConnectMenuTree(g_app.rootMenu, node);
+    }
+}
+
+const char* GetMenuItemText(MENU* menu) {
+    if (menu == g_app.rootMenu) return u8"主菜单";
+    if (menu->displayName) return menu->displayName;
+    return "";
+}
+```
+
+**优势**：新增菜单只需在注册表中添加一行，无需修改 `InitMenuTree` 和 `GetMenuItemText`。
+
+---
+
+### 8. 构建脚本增强
+
+**现状**：每次新增 `.c/.h` 文件都需要手动修改 `CMakeLists.txt`，开发中容易遗漏导致编译失败。
+
+**建议**：使用文件通配或自动生成
+
+```cmake
+# CMakeLists.txt 中使用 GLOB 自动检测源文件
+file(GLOB_RECURSE SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.h
+)
+add_executable(main_c ${SOURCES})
+```
+
+**注意**：CMake 的 GLOB 不会自动检测新文件，需要重新运行 `cmake`。可以添加自定义目标：
+
+```cmake
+add_custom_target(reconfigure COMMAND ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR})
+```
+
+---
+
+### 9. 统一的消息提示组件
+
+**现状**：多个页面（登录、注册、词库管理、计划管理）各自维护独立的 `msg[128]` 消息缓冲区，代码重复。
+
+**建议**：封装统一的提示组件
+
+```c
+typedef struct {
+    char text[128];
+    Color color;
+    int remainingFrames;  // 显示帧数，到期自动消失
+} ToastMessage;
+
+void Toast_Show(const char* text, bool isError);
+void Toast_Render(void);  // 在 EndDrawing 前调用
+```
+
+**使用**：
+```c
+Toast_Show(u8"保存成功！", false);   // 绿色提示
+Toast_Show(u8"删除失败", true);     // 红色提示
+```
+
+---
+
+### 10. 本地化/配置分离
+
+**现状**：
+- 所有 UI 文本硬编码为中文
+- `allChinese` 字体预加载与中文文本耦合
+- 修改文本需要重新编译
+
+**建议**：将 UI 文本提取到配置文件
+
+```c
+// lang_zh.txt - 中文文本
+home.title=主菜单
+home.welcome=欢迎使用背单词软件！
+account.login=登录
+account.register=注册
+
+// 运行时加载
+const char* T(const char* key) {
+    static char buffer[256];
+    // 从加载的文本表查找 key
+    // 未找到则返回 key 本身
+}
+```
+
+**优势**：
+- 支持多语言切换
+- 修改文本无需重新编译
+- `allChinese` 可以基于加载的文本自动生成

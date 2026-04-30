@@ -10,13 +10,42 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | raylib-word |
-| 当前版本 | v4.1.0 |
+| 当前版本 | v4.1.1 |
 | 创建日期 | 2025-01-26 |
 | 最近更新 | 2026-04-29 |
 
 ---
 
 ## 更新日志
+
+### v4.1.1 (2026-04-29) - 计划数据绑定修复 + 删除按钮
+
+#### 修复内容
+
+1. **计划数据不显示** — `plan.c`
+   - 根因：与账号系统相同的 Bug（经验 12），`plan.c` 内部 `static PlanState` 与 `g_app.plan` 不同步
+   - 修复：添加 `Plan_SetState()` + `getPlanState()` 模式，在 `AppState_Init()` 中绑定
+
+2. **字体补充** — `fonts.c`
+   - allChinese 新增 5 个汉字：周半巩阶刺
+
+#### 新增内容
+
+1. **计划删除按钮** — `menu_callbacks.c`
+   - 每个计划项右上角添加红色 ✕ 删除按钮
+   - 悬停时背景变红，点击调用 `Plan_Delete(i)`
+
+#### 文件变更
+
+| 文件 | 变更 |
+|------|------|
+| `plan.h/c` | 新增 `Plan_SetState()` 状态绑定 |
+| `app_state.c` | 添加 `Plan_SetState(&g_app.plan)` 绑定调用 |
+| `menu_callbacks.c` | 计划列表添加 ✕ 删除按钮 |
+| `fonts.c` | allChinese 补充周半巩阶刺 |
+| `BACKSPACE_SUPPORT_REPORT.md` | 新增经验 12 |
+
+---
 
 ### v4.1.0 (2026-04-29) - 登录强制 + 计划多用户支持
 
