@@ -15,7 +15,7 @@
 
 #define MAX_PLANS         20
 #define PLAN_NAME_MAX     64
-#define PLAN_FILE_DEFAULT "./plans.txt"
+#define PLAN_FILE_DEFAULT "./data/plans.txt"
 
 // ============================================================================
 // 数据结构

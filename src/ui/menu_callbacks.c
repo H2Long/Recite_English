@@ -1189,20 +1189,26 @@ void MenuSettings_Show(void) {
 // 词库管理页面
 // ============================================================================
 
-// 词库管理状态
+/** g_wmState - 词库管理页面状态 */
 static struct {
-    int selectedIdx;                // 当前选中的单词索引 (-1=无)
-    int searchResults[MAX_WORDS];   // 搜索结果索引
-    int searchCount;                // 搜索结果数
-    char searchQuery[64];           // 搜索关键词
-    UITextBoxState searchBox;       // 搜索框状态
-    UITextBoxState fieldStates[5];  // 编辑框状态
-    bool isAdding;                  // 是否在添加模式
-    char msg[128];                  // 提示消息
-    int msgTimer;                   // 消息显示计时
+    int selectedIdx;                /**< 当前选中的单词索引（-1=未选中） */
+    int searchResults[MAX_WORDS];   /**< 搜索结果在 g_wordLibrary 中的索引数组 */
+    int searchCount;                /**< 当前搜索结果的数量 */
+    char searchQuery[64];           /**< 搜索关键词 */
+    UITextBoxState searchBox;       /**< 搜索输入框状态 */
+    UITextBoxState fieldStates[5];  /**< 编辑框：[0]单词 [1]音标 [2]释义 [3]例句 [4]例句翻译 */
+    bool isAdding;                  /**< 是否在添加模式 */
+    char msg[128];                  /**< 操作结果提示消息 */
+    int msgTimer;                   /**< 消息显示计时器 */
 } g_wmState = {0};
 
-// 词库管理页面 - 搜索单词列表
+/**
+ * wmDoSearch - 词库管理页面的内部搜索函数
+ *
+ * 根据搜索框内容对 g_wordLibrary 进行不区分大小写的子串匹配。
+ * 搜索框为空时列出所有单词，结果存入 g_wmState.searchResults。
+ * 在用户点击搜索按钮或搜索框内容变化时自动调用。
+ */
 static void wmDoSearch(void) {
     g_wmState.searchCount = 0;
     const char* q = g_wmState.searchBox.buffer;
@@ -1365,27 +1371,27 @@ void MenuWordManager_Show(void) {
 // 账号管理页面
 // ============================================================================
 
-// 子页面状态（0=主页面，1=登录页，2=注册页）
+/** g_accountSubPage - 账号管理页面的子页面状态（0=主页，1=登录页，2=注册页） */
 static int g_accountSubPage = 0;
 
-// 登录表单状态
+/** g_loginForm - 登录表单状态 */
 static struct {
-    char username[MAX_USERNAME];
-    char password[MAX_PASSWORD];
-    UITextBoxState userState;
-    UITextBoxState passState;
-    bool initialized;
+    char username[MAX_USERNAME];        /**< 用户名文本 */
+    char password[MAX_PASSWORD];        /**< 密码文本 */
+    UITextBoxState userState;           /**< 用户名输入框状态 */
+    UITextBoxState passState;           /**< 密码输入框状态（密码模式） */
+    bool initialized;                   /**< 是否已初始化 */
 } g_loginForm = {0};
 
-// 注册表单状态
+/** g_regForm - 注册表单状态 */
 static struct {
-    char username[MAX_USERNAME];
-    char password[MAX_PASSWORD];
-    char confirm[MAX_PASSWORD];
-    UITextBoxState userState;
-    UITextBoxState passState;
-    UITextBoxState confirmState;
-    bool initialized;
+    char username[MAX_USERNAME];        /**< 用户名文本 */
+    char password[MAX_PASSWORD];        /**< 密码文本 */
+    char confirm[MAX_PASSWORD];         /**< 确认密码文本 */
+    UITextBoxState userState;           /**< 用户名输入框状态 */
+    UITextBoxState passState;           /**< 密码输入框状态 */
+    UITextBoxState confirmState;        /**< 确认密码输入框状态 */
+    bool initialized;                   /**< 是否已初始化 */
 } g_regForm = {0};
 
 /**
@@ -1450,18 +1456,18 @@ void MenuAccount_Show(void) {
         Rectangle logoutBtn = UILayoutNext(&btnLayout, 160, 50);
         if (UIButton(u8"登出", logoutBtn, STYLE, UI_STATE, 300)) {
             Account_Logout();
-            setProgressFilePath("./progress.txt");
+            setProgressFilePath("./data/progress.txt");
             loadProgress();
-            Plan_SetFilePath("./plans.txt");
+            Plan_SetFilePath("./data/plans.txt");
             snprintf(LOGIN_MSG, 128, "%s", u8"已登出");
         }
 
         Rectangle switchBtn = UILayoutNext(&btnLayout, 200, 50);
         if (UIButton(u8"切换账号", switchBtn, STYLE, UI_STATE, 301)) {
             Account_Logout();
-            setProgressFilePath("./progress.txt");
+            setProgressFilePath("./data/progress.txt");
             loadProgress();
-            Plan_SetFilePath("./plans.txt");
+            Plan_SetFilePath("./data/plans.txt");
             g_accountSubPage = 1;
         }
     } else {

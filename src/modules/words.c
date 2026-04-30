@@ -4,26 +4,42 @@
 // ============================================================================
 
 #include "words.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <regex.h>
 #include <ctype.h>
 
-// 动态单词库（支持从文件加载）
+/**
+ * g_wordLibrary - 单词库动态数组
+ * 
+ * 由 loadWordsFromFile() 从 words.txt 加载，动态扩容。
+ * 每个元素包含单词、音标、释义、例句等原始数据（不含学习进度）。
+ * 支持运行时 add/edit/delete 操作，修改后自动保存到文件。
+ * 程序退出时需调用 freeWordLibrary() 释放内存。
+ */
 WordEntry* g_wordLibrary = NULL;
-static int g_wordLibraryCapacity = 0;
+static int g_wordLibraryCapacity = 0;   // 当前分配容量（自动倍增扩容）
 
-// 单词数据（含学习进度）
+/**
+ * g_words[MAX_WORDS] - 含学习进度的单词数组
+ * 
+ * 程序核心数据数组，由 initWords() 从 g_wordLibrary 填充。
+ * 每个元素包含单词条目和学习进度（认识次数、是否掌握等）。
+ * 词库修改后需调用 reloadWords() 同步。
+ */
 WordWithProgress g_words[MAX_WORDS];
-int g_wordProgressCount = 0;
-int g_wordCount = 0;
+int g_wordProgressCount = 0;    // g_words 中有效单词数（≤ MAX_WORDS）
+int g_wordCount = 0;            // g_wordLibrary 中单词总数
 
-// 学单词模式滚动偏移
+// g_learnScrollOffset - 学单词模式左侧列表的滚动位置
+// 保存在 global scope 中以实现跨帧持久化（当前未使用，由 LearnState 管理）
 float g_learnScrollOffset = 0;
 
-// 进度文件路径（支持多用户切换，默认为 progress.txt）
-static char g_progressFilePath[256] = "./progress.txt";
+// g_progressFilePath - 进度文件路径（支持多用户切换）
+// 默认指向 "./data/progress.txt"，登录后切换为用户专属文件
+static char g_progressFilePath[256] = "./data/progress.txt";
 
 /**
  * 设置进度文件路径（用于多用户切换）
@@ -45,9 +61,19 @@ void shuffleArray(int *array, int count) {
     }
 }
 
-// 从文件加载单词
-// 文件格式：word|phonetic|definition|example（每行一个单词）
-// 如果文件不存在，使用内置的10个默认单词
+/**
+ * loadWordsFromFile - 从文件加载单词到 g_wordLibrary
+ * 
+ * 文件格式（每行一个单词，管道符分隔）：
+ *   word|phonetic|definition|example|exampleTranslation
+ * 前三个字段（word/phonetic/definition）为必填。
+ * 如果文件不存在，使用内置的10个默认单词（abandon ~ accomplish）作为后备。
+ * 
+ * 注意：此函数只填充 g_wordLibrary，之后还需调用 initWords() 
+ * 将数据复制到 g_words 并初始化学习进度。
+ * 
+ * @param filename 单词数据文件路径（如 "./data/words.txt"）
+ */
 void loadWordsFromFile(const char* filename) {
     FILE* fp = fopen(filename, "r");
     if (fp == NULL) {
@@ -120,7 +146,13 @@ void loadWordsFromFile(const char* filename) {
     printf("INFO: Loaded %d words from %s\n", g_wordCount, filename);
 }
 
-// 释放单词库内存
+/**
+ * freeWordLibrary - 释放单词库 g_wordLibrary 的内存
+ * 
+ * 遍历所有单词条目，依次释放 word/phonetic/definition/example/exampleTranslation
+ * 各自的 strdup 内存，最后释放动态数组本身。
+ * 程序退出时在 main() 的清理阶段调用。
+ */
 void freeWordLibrary(void) {
     if (g_wordLibrary == NULL) return;
     for (int i = 0; i < g_wordCount; i++) {
@@ -135,7 +167,15 @@ void freeWordLibrary(void) {
     g_wordCount = 0;
 }
 
-// 初始化单词数据
+/**
+ * initWords - 初始化单词进度数据
+ * 
+ * 将 g_wordLibrary 中的单词复制到 g_words 数组，关联 WordProgress 进度结构。
+ * 新建的进度默认为：knownCount=0, unknownCount=0, mastered=false。
+ * 初始化后会调用 loadProgress() 从文件恢复历史学习进度。
+ * 
+ * 调用时机：在 loadWordsFromFile() 之后调用。
+ */
 void initWords(void) {
     for (int i = 0; i < g_wordCount && i < MAX_WORDS; i++) {
         g_words[i].entry = g_wordLibrary[i];
@@ -342,6 +382,21 @@ bool saveWordsToFile(const char* filename) {
     return true;
 }
 
+/**
+ * addWordToLibrary - 添加新单词到词库
+ * 
+ * 参数检查通过后在 g_wordLibrary 末尾追加新条目，
+ * 所有字段都通过 strdup 复制，确保内存独立。
+ * 添加后自动保存到 words.txt 文件。
+ * 注意：添加后需调用 reloadWords() 同步到 g_words 进度数组。
+ * 
+ * @param w 单词（必填，不能为空）
+ * @param ph 音标（可选，为空时存空字符串）
+ * @param def 释义（可选）
+ * @param ex 例句（可选）
+ * @param ext 例句翻译（可选）
+ * @return true 添加成功，false 添加失败（单词为空或已到上限）
+ */
 bool addWordToLibrary(const char* w, const char* ph, const char* def,
                       const char* ex, const char* ext) {
     if (w == NULL || strlen(w) == 0) return false;
@@ -356,10 +411,24 @@ bool addWordToLibrary(const char* w, const char* ph, const char* def,
     g_wordLibrary[g_wordCount].example = strdup(ex ? ex : "");
     g_wordLibrary[g_wordCount].exampleTranslation = strdup(ext ? ext : "");
     g_wordCount++;
-    saveWordsToFile("./words.txt");
+    saveWordsToFile(WORDS_FILE_PATH);
     return true;
 }
 
+/**
+ * editWordInLibrary - 编辑词库中指定索引的单词
+ * 
+ * 先释放原有字段的内存，再通过 strdup 复制新内容。
+ * 编辑后自动保存到 words.txt 文件并需调用 reloadWords() 同步。
+ * 
+ * @param idx 要编辑的单词索引（0 ~ g_wordCount-1）
+ * @param w 新单词内容（必填）
+ * @param ph 新音标
+ * @param def 新释义
+ * @param ex 新例句
+ * @param ext 新例句翻译
+ * @return true 编辑成功，false 编辑失败（索引无效或单词为空）
+ */
 bool editWordInLibrary(int idx, const char* w, const char* ph,
                        const char* def, const char* ex, const char* ext) {
     if (idx < 0 || idx >= g_wordCount || w == NULL || strlen(w) == 0) return false;
@@ -373,10 +442,19 @@ bool editWordInLibrary(int idx, const char* w, const char* ph,
     g_wordLibrary[idx].definition = strdup(def ? def : "");
     g_wordLibrary[idx].example = strdup(ex ? ex : "");
     g_wordLibrary[idx].exampleTranslation = strdup(ext ? ext : "");
-    saveWordsToFile("./words.txt");
+    saveWordsToFile(WORDS_FILE_PATH);
     return true;
 }
 
+/**
+ * deleteWordFromLibrary - 从词库删除指定索引的单词
+ * 
+ * 释放该单词的所有字段内存，将后续单词前移填补空缺，
+ * 最后递减 g_wordCount。删除后自动保存到 words.txt。
+ * 
+ * @param idx 要删除的单词索引
+ * @return true 删除成功，false 索引无效
+ */
 bool deleteWordFromLibrary(int idx) {
     if (idx < 0 || idx >= g_wordCount) return false;
     free((void*)g_wordLibrary[idx].word);
@@ -386,10 +464,19 @@ bool deleteWordFromLibrary(int idx) {
     free((void*)g_wordLibrary[idx].exampleTranslation);
     for (int i = idx; i < g_wordCount - 1; i++) g_wordLibrary[i] = g_wordLibrary[i + 1];
     g_wordCount--;
-    saveWordsToFile("./words.txt");
+    saveWordsToFile(WORDS_FILE_PATH);
     return true;
 }
 
+/**
+ * reloadWords - 重新加载 g_words 进度数组（词库修改后调用）
+ * 
+ * 将 g_wordLibrary 的最新数据同步到 g_words 数组。
+ * 对于新增索引（i >= oldCnt）初始化进度为默认值，
+ * 对于已有索引保留原有的 knownCount 等进度数据。
+ * 
+ * 在词库管理页面的添加/编辑/删除操作后调用。
+ */
 void reloadWords(void) {
     int oldCnt = g_wordProgressCount;
     g_wordProgressCount = 0;

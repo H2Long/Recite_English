@@ -12,18 +12,44 @@
 // 内部状态
 // ============================================================================
 
+// g_pPlanState: 指向外部状态的指针（由 AppState 通过 Plan_SetState 传入）
+// 如果为 NULL，库使用内部备用状态 g_planInternal
 static PlanState* g_pPlanState = NULL;
-static PlanState g_planInternal;
-static char g_planFilePath[256] = "./plans.txt";
+static PlanState g_planInternal;            // 内部备用状态（无外部绑定时使用）
+static char g_planFilePath[256] = "./data/plans.txt";  // 计划文件路径（支持运行时切换）
 
+/**
+ * Plan_SetState - 绑定外部状态指针
+ * 
+ * 将 plan 模块与 AppState 中的 PlanState 关联起来。
+ * 如果不调用此函数，库会自动使用内部静态 PlanState。
+ * 此设计使 plan 模块可以独立运行，也可以集成到统一状态管理中。
+ * 
+ * @param state 外部 PlanState 指针（传入 &g_app.plan）
+ */
 void Plan_SetState(PlanState* state) {
     g_pPlanState = state;
 }
 
+/**
+ * getPlanState - 获取当前有效的计划状态指针
+ * 
+ * 优先返回外部绑定的状态，未绑定时返回内部备用状态。
+ * 
+ * @return PlanState* 当前有效的计划状态指针
+ */
 static PlanState* getPlanState(void) {
     return g_pPlanState ? g_pPlanState : &g_planInternal;
 }
 
+/**
+ * Plan_SetFilePath - 设置计划文件路径（用于多用户切换）
+ * 
+ * 切换用户时调用此函数更新计划文件路径，
+ * 设置后会自动调用 Plan_Init() 从新路径重新加载计划数据。
+ * 
+ * @param path 新的计划文件路径（如 "./data/plans_hhlong.txt"）
+ */
 void Plan_SetFilePath(const char* path) {
     strncpy(g_planFilePath, path, sizeof(g_planFilePath) - 1);
     g_planFilePath[sizeof(g_planFilePath) - 1] = '\0';
@@ -48,6 +74,12 @@ static const int g_defaultPlanCount = sizeof(g_defaultPlans) / sizeof(g_defaultP
 // 内部辅助
 // ============================================================================
 
+/**
+ * find_plan - 按名称查找计划索引
+ * 
+ * @param name 计划名称
+ * @return int 计划索引，-1 表示未找到
+ */
 static int find_plan(const char* name) {
     for (int i = 0; i < getPlanState()->planCount; i++) {
         if (strcmp(getPlanState()->plans[i].name, name) == 0) return i;
@@ -55,6 +87,17 @@ static int find_plan(const char* name) {
     return -1;
 }
 
+/**
+ * get_today_date - 获取今天的日期整数值
+ * 
+ * 将当前日期编码为 yyyymmdd 格式的整数，
+ * 用于比较两个日期是否为同一天（判断"新的一天"）。
+ * 例如 2026年4月30日 → 20260430
+ * 
+ * 注意：使用 tm_mon 时需 +1，因为 tm_mon 范围是 0~11
+ * 
+ * @return int 今天的日期编码（yyyymmdd）
+ */
 static int get_today_date(void) {
     time_t now = time(NULL);
     struct tm* tm = localtime(&now);
@@ -161,6 +204,11 @@ void Plan_SetActive(int index) {
     Plan_Save();
 }
 
+/**
+ * Plan_GetActive - 获取当前激活的学习计划
+ * 
+ * @return LearningPlan* 当前激活计划的指针，无激活计划时返回 NULL
+ */
 LearningPlan* Plan_GetActive(void) {
     if (getPlanState()->activePlanIndex < 0) return NULL;
     return &getPlanState()->plans[getPlanState()->activePlanIndex];

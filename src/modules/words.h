@@ -42,10 +42,40 @@ typedef struct {
 // 外部变量声明（由 words.c 提供）
 // ============================================================================
 
-extern WordWithProgress g_words[MAX_WORDS];      // 所有单词数据（含进度）
-extern WordEntry* g_wordLibrary;                 // 单词库动态数组
-extern int g_wordProgressCount;                  // 已加载的单词数量
-extern int g_wordCount;                          // 单词库总数（可能大于已加载数）
+/**
+ * g_words[MAX_WORDS] - 所有单词数据（含学习进度）
+ * 
+ * 这是程序核心数据：从 g_wordLibrary 复制而来，关联了每个单词的学习进度。
+ * g_wordProgressCount 表示实际有效的单词数。
+ * 所有学习模式（学单词、背单词、测试）都基于此数组操作。
+ */
+extern WordWithProgress g_words[MAX_WORDS];
+
+/**
+ * g_wordLibrary - 单词库动态数组（WordEntry 指针）
+ * 
+ * 从 words.txt 加载的原始单词数据，支持运行时增删改。
+ * g_wordLibrary 是动态分配的内存，通过 g_wordCount 跟踪有效数量。
+ * 词库修改后需调用 reloadWords() 同步到 g_words 数组。
+ */
+extern WordEntry* g_wordLibrary;
+
+/**
+ * g_wordProgressCount - 已加载到 g_words 的单词数量
+ * 
+ * 即 g_words 数组中实际有效的单词个数。
+ * 用于遍历单词列表、生成题目等场景。
+ * 注意此值 ≤ g_wordCount 且 ≤ MAX_WORDS。
+ */
+extern int g_wordProgressCount;
+
+/**
+ * g_wordCount - 单词库中单词的总数
+ * 
+ * 即 g_wordLibrary 中的单词数量，可能大于 g_wordProgressCount
+ * （当词库超过 MAX_WORDS 时，g_wordProgressCount 最多为 MAX_WORDS）。
+ */
+extern int g_wordCount;
 
 // ============================================================================
 // 函数声明
@@ -78,8 +108,13 @@ void initWords(void);
 void shuffleArray(int *array, int count);
 
 /**
- * 设置进度文件路径（用于多用户切换）
- * @param path 进度文件路径
+ * setProgressFilePath - 设置学习进度文件路径（用于多用户切换）
+ * 
+ * 不同用户登录后调用此函数切换到该用户专属的进度文件，
+ * 例如 "progress_hhlong.txt"。切换后需调用 loadProgress() 加载数据。
+ * 未登录时使用默认的 "progress.txt"。
+ * 
+ * @param path 进度文件路径（如 "./data/progress_hhlong.txt"）
  */
 void setProgressFilePath(const char* path);
 

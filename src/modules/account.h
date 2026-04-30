@@ -16,7 +16,7 @@
 #define MAX_USERS        50      // 最大用户数
 #define MAX_USERNAME     32      // 用户名最大长度
 #define MAX_PASSWORD     64      // 密码最大长度
-#define ACCOUNT_FILE     "./accounts.txt"   // 账号数据文件
+#define ACCOUNT_FILE     "./data/accounts.txt"   // 账号数据文件
 
 // ============================================================================
 // 数据结构

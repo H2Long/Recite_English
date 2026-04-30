@@ -209,7 +209,7 @@ void loadFonts(void) {
     
     // 加载中文字体
     const char* candidates[] = {
-        "./NotoSansCJK.otf",
+        "./data/fonts/NotoSansCJK.otf",
         "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
         "./simhei.ttf",
         "./SimHei.ttf",

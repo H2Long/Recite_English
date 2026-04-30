@@ -19,13 +19,31 @@ static AccountState g_internalState;    // 内部备用状态
 // 内部辅助函数
 // ============================================================================
 
+/**
+ * getState - 获取当前有效的账号状态指针
+ * 
+ * 优先返回外部绑定的状态（由 AppState 通过 Account_SetState 传入），
+ * 如果未绑定则使用内部备用状态。这种设计使 account.c 既可以作为
+ * 独立库运行（使用内部状态），也可以集成到 AppState 中（使用外部状态）。
+ * 
+ * @return AccountState* 当前有效的账号状态指针
+ */
 static AccountState* getState(void) {
     return g_pState ? g_pState : &g_internalState;
 }
 
 /**
- * 简单字符串哈希（djb2 算法）
- * 用于密码存储，非加密安全但适合本地应用
+ * hash_string - djb2 字符串哈希算法
+ * 
+ * 经典的字符串哈希算法，由 Daniel J. Bernstein 提出。
+ * 特点：简单快速、分布均匀、冲突率低。
+ * 用于密码哈希存储，注意此算法不是加密安全的（不适合生产环境密码存储），
+ * 但对于本地单机应用来说足够使用。
+ * 
+ * 算法原理：hash(i) = hash(i-1) * 33 + str[i]
+ * 
+ * @param str 要哈希的字符串
+ * @return unsigned long 哈希值
  */
 static unsigned long hash_string(const char* str) {
     unsigned long hash = 5381;
@@ -37,9 +55,12 @@ static unsigned long hash_string(const char* str) {
 }
 
 /**
- * 查找用户索引
- * @param username 用户名
- * @return 索引，-1表示未找到
+ * find_user - 按用户名查找用户索引
+ * 
+ * 遍历用户数组进行精确匹配。
+ * 
+ * @param username 要查找的用户名
+ * @return int 用户索引（0 ~ userCount-1），-1 表示未找到
  */
 static int find_user(const char* username) {
     AccountState* s = getState();
@@ -52,7 +73,14 @@ static int find_user(const char* username) {
 }
 
 /**
- * 生成密码哈希字符串
+ * hash_password - 生成密码的哈希字符串
+ * 
+ * 将明文密码通过 djb2 哈希算法转换为哈希字符串，
+ * 存储到输出缓冲区中。密码不以明文形式存储。
+ * 
+ * @param password 明文密码
+ * @param output 输出缓冲区（存放哈希字符串）
+ * @param outputSize 输出缓冲区大小
  */
 static void hash_password(const char* password, char* output, int outputSize) {
     unsigned long h = hash_string(password);
@@ -121,6 +149,13 @@ void Account_Init(void) {
     printf("INFO: Loaded %d user(s) from %s\n", s->userCount, ACCOUNT_FILE);
 }
 
+/**
+ * Account_Save - 保存所有用户账号数据到文件
+ * 
+ * 将当前内存中的用户列表写入 ACCOUNT_FILE，
+ * 格式：username|passwordHash|createdTime|lastLoginTime|selectWordCorrect|selectWordTotal
+ * 每行一个用户。此函数在账号注册、登录后自动调用。
+ */
 void Account_Save(void) {
     AccountState* s = getState();
     FILE* fp = fopen(ACCOUNT_FILE, "w");

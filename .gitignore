@@ -16,6 +16,10 @@ Makefile
 build.ninja
 *.cmake
 
+# Ninja 临时文件
+.ninja_deps
+.ninja_log
+
 # 测试日志
 Testing/
 
@@ -24,9 +28,15 @@ Testing/
 *.swo
 *~
 .DS_Store
+*.bak
+*.new
 
-# 进度文件（可选，是否需要提交）
+# 构建产物目录
+build/
+
+# IDE 配置
+.idea/
+.cmake/
+
+# 进度文件（是否提交可选）
 # progress.txt
-cmake-build-debug/
-*.o
-*.a

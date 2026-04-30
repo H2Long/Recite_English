@@ -104,8 +104,8 @@
 // 文件路径配置
 // ============================================================================
 
-#define WORDS_FILE_PATH     "./words.txt"       // 单词数据文件路径
-#define PROGRESS_FILE_PATH  "./progress.txt"   // 学习进度文件路径
-#define FONT_FILE_PATH      "./NotoSansCJK.otf" // 中文字体文件路径
+#define WORDS_FILE_PATH     "./data/words.txt"       // 单词数据文件路径
+#define PROGRESS_FILE_PATH  "./data/progress.txt"   // 学习进度文件路径
+#define FONT_FILE_PATH      "./data/fonts/NotoSansCJK.otf" // 中文字体文件路径
 
 #endif // CONFIG_H
