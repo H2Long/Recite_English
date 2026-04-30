@@ -595,10 +595,10 @@ void MenuSelectWord_Show(void) {
     // 进度
     Rectangle progressRect = {SCREEN_WIDTH/2 - 150, 660, 300, 40};
     char progressText[64];
+    int selectRate = SELECT_WORD.selectTotal > 0 ?
+        (int)((float)SELECT_WORD.selectCorrect / SELECT_WORD.selectTotal * 100.0f) : 0;
     snprintf(progressText, sizeof(progressText), u8"进度: %d / %d  正确率: %d%%",
-             SELECT_WORD.currentSelectIdx + 1, SELECT_WORD.selectCount,
-             SELECT_WORD.selectTotal > 0 ?
-             SELECT_WORD.selectCorrect * 100 / SELECT_WORD.selectTotal : 0);
+             SELECT_WORD.currentSelectIdx + 1, SELECT_WORD.selectCount, selectRate);
     Vector2 pSize = MeasureTextAuto(progressText, 22, 1);
     DrawTextAuto(progressText, (Vector2){SCREEN_WIDTH/2 - pSize.x/2, progressRect.y + 8},
                  22, 1, STYLE->theme.textSecondary);
@@ -778,8 +778,10 @@ void MenuTest_Show(void) {
         // --------------------------------------------------------------------
         Rectangle progressRect = {SCREEN_WIDTH/2 - 150, 660, 300, 40};
         char progressText[64];
+        int testRate = TEST.testTotal > 0 ?
+            (int)((float)TEST.testCorrect / TEST.testTotal * 100.0f) : 0;
         snprintf(progressText, sizeof(progressText), u8"进度: %d / %d  正确率: %d%%",
-            TEST.currentTestIdx + 1, TEST.testCount, TEST.testTotal > 0 ? TEST.testCorrect * 100 / TEST.testTotal : 0);
+            TEST.currentTestIdx + 1, TEST.testCount, testRate);
         Vector2 pSize = MeasureTextAuto(progressText, 22, 1);
         DrawTextAuto(progressText, (Vector2){SCREEN_WIDTH/2 - pSize.x/2, progressRect.y + 8}, 22, 1, STYLE->theme.textSecondary);
 

@@ -18,6 +18,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // ============================================================================
 // 宏定义：简化访问器调用
@@ -47,7 +48,7 @@ int main(void) {
     Account_Init();                    // 初始化账号系统
     Plan_Init();                       // 初始化学习计划
     initWords();                       // 初始化单词进度（加载学习进度）
-    srand(time(NULL));                 // 初始化随机数种子
+    srand((unsigned int)(time(NULL) ^ (uintptr_t)&srand));  // 初始化随机数种子
     loadFonts();                       // 加载中英文字体
     UISetFonts(g_mergedFont, g_englishFont);  // 设置 UI 使用的字体
     UISetLatinFont(g_latinFont);       // 设置 IPA 音标字体
