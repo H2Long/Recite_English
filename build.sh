@@ -28,37 +28,39 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # 检查依赖
 check_deps() {
     info "检查依赖..."
-    
+
     if ! command -v cmake &> /dev/null; then
         error "cmake 未安装！请先安装: sudo apt install cmake"
         exit 1
     fi
-    
+
     if ! command -v ninja &> /dev/null; then
         warn "ninja 未安装，使用 make 替代"
         GENERATOR=""
     else
         GENERATOR="-G Ninja"
     fi
-    
+
     # 检查 raylib 是否可用
-    if ! pkg-config --exists raylib 2>/dev/null && \
-       ! ldconfig -p | grep -q libraylib 2>/dev/null && \
+    if ! ldconfig -p | grep -q libraylib 2>/dev/null && \
        [ ! -f /usr/local/lib/libraylib.a ] && \
+       [ ! -f /usr/local/lib/libraylib.so ] && \
        [ ! -f /usr/lib/x86_64-linux-gnu/libraylib.so ]; then
         warn "未检测到 raylib，尝试自动安装..."
         if command -v apt &> /dev/null; then
             sudo apt install -y libraylib-dev 2>/dev/null || {
-                error "自动安装失败，请手动安装 raylib:"
-                echo "  sudo apt install libraylib-dev"
+                error "自动安装失败，请手动安装:"
+                echo "  Ubuntu/Debian: sudo apt install libraylib-dev"
+                echo "  macOS:          brew install raylib"
+                echo "  Windows:        vcpkg install raylib"
                 exit 1
             }
         else
-            error "请先安装 raylib 库"
+            error "请先安装 raylib 库，安装方法见: https://github.com/raysan5/raylib"
             exit 1
         fi
     fi
-    
+
     info "依赖检查通过"
 }
 
@@ -72,30 +74,76 @@ do_clean() {
 # 编译
 do_build() {
     info "开始编译..."
-    
+
     mkdir -p "${BUILD_DIR}"
     cd "${BUILD_DIR}"
     cmake .. ${GENERATOR} -DCMAKE_BUILD_TYPE=Release
     cmake --build . -- -j$(nproc)
     cd ..
-    
+
+    # 检测链接方式：静态还是动态
+    if ldd "${BUILD_DIR}/main_c" 2>/dev/null | grep -q libraylib; then
+        LINK_TYPE="dynamic"
+        info "链接方式: 动态链接（需附带 libraylib.so）"
+    else
+        LINK_TYPE="static"
+        info "链接方式: 静态链接（完全独立，无需额外文件）"
+    fi
+    echo "${LINK_TYPE}" > "${BUILD_DIR}/.link_type"
+
     info "编译完成！"
+}
+
+# 找 raylib.so 的路径
+find_raylib_so() {
+    # 从 ldd 输出中提取路径
+    local so_path=$(ldd "${BUILD_DIR}/main_c" 2>/dev/null | grep libraylib | awk '{print $3}')
+    if [ -n "$so_path" ] && [ -f "$so_path" ]; then
+        echo "$so_path"
+        return 0
+    fi
+    # 备选：从常见路径找
+    for p in /usr/local/lib/libraylib.so /usr/lib/x86_64-linux-gnu/libraylib.so; do
+        if [ -f "$p" ]; then
+            echo "$p"
+            return 0
+        fi
+    done
+    return 1
 }
 
 # 安装到 dist 目录
 do_install() {
     info "打包程序文件..."
-    
+
     rm -rf "${DIST_DIR}"
     mkdir -p "${DIST_DIR}"
-    
+
     # 1. 复制可执行文件
     cp "${BUILD_DIR}/main_c" "${DIST_DIR}/"
-    
-    # 2. 复制数据文件（字体 + 单词库）
+
+    # 2. 如果是动态链接，附带 libraylib.so
+    local link_type
+    if [ -f "${BUILD_DIR}/.link_type" ]; then
+        link_type=$(cat "${BUILD_DIR}/.link_type")
+    else
+        link_type="static"
+    fi
+
+    if [ "$link_type" = "dynamic" ]; then
+        local so_path
+        if so_path=$(find_raylib_so); then
+            cp "$so_path" "${DIST_DIR}/"
+            info "已附带动态库: $(basename "$so_path")"
+        else
+            warn "找不到 libraylib.so，用户需自行安装 raylib"
+        fi
+    fi
+
+    # 3. 复制数据文件（字体 + 单词库）
     cp -r data "${DIST_DIR}/"
-    
-    # 3. 复制运行说明
+
+    # 4. 复制运行说明
     cat > "${DIST_DIR}/使用说明.txt" << EOF
 ${PROJECT} v${VERSION}
 
@@ -109,32 +157,37 @@ ${PROJECT} v${VERSION}
   data/progress*.txt      ← 学习进度
   data/fonts/             ← 字体文件
 
-提示：按 F11 可全屏，按 Esc 退出。
+提示：按 Esc 退出程序。
 EOF
-    
-    # 4. Linux 下设置可执行权限
-    chmod +x "${DIST_DIR}/main_c"
-    
-    info "打包完成！程序在 ${DIST_DIR}/"
+
+    # 5. Linux 下设置可执行权限
+    chmod +x "${DIST_DIR}/main_c" 2>/dev/null || true
+
+    # 6. 显示 dist 目录大小
+    local dist_size=$(du -sh "${DIST_DIR}" | cut -f1)
+    info "打包完成！程序在 ${DIST_DIR}/ (共 ${dist_size})"
     echo "直接运行: ${DIST_DIR}/main_c"
 }
 
 # 打包成压缩包
 do_package() {
     do_install
-    
+
     local PKG_NAME="${PROJECT}-v${VERSION}-linux"
     cd "${BUILD_DIR}"
-    
+
     # 创建 tar.gz 包
     tar czf "${PKG_NAME}.tar.gz" dist/
+    local pkg_size=$(du -h "${PKG_NAME}.tar.gz" | cut -f1)
+    cd ..
+
     echo ""
     info "===================================="
     info "分发包已创建:"
-    info "  ${BUILD_DIR}/${PKG_NAME}.tar.gz"
+    info "  ${BUILD_DIR}/${PKG_NAME}.tar.gz  (${pkg_size})"
     info "===================================="
     echo ""
-    info "用户解压后直接运行:"
+    info "收包方解压后运行:"
     echo "  tar xzf ${PKG_NAME}.tar.gz"
     echo "  cd dist"
     echo "  ./main_c"

@@ -3,30 +3,48 @@ project(main_c)
 
 set(CMAKE_C_STANDARD 11)
 
-# 跨平台查找 raylib
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(raylib QUIET raylib)
+# ============================================================================
+# raylib 查找策略：
+# 1. 优先静态链接 — 生成独立可执行文件，无需额外 .dll/.so
+# 2. 没有静态库时回退到动态链接
+# ============================================================================
+
+# 先尝试找静态库
+set(saved_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+find_library(raylib_STATIC_LIB raylib)
+set(CMAKE_FIND_LIBRARY_SUFFIXES ${saved_suffixes})
+
+if(raylib_STATIC_LIB)
+    message(STATUS "raylib: 静态链接 → ${raylib_STATIC_LIB}")
+    set(raylib_LIBRARIES ${raylib_STATIC_LIB})
+    set(RAYLIB_IS_STATIC TRUE)
+else()
+    # 回退到动态链接
+    find_library(raylib_LIBRARY raylib)
+    if(raylib_LIBRARY)
+        message(STATUS "raylib: 动态链接 → ${raylib_LIBRARY}")
+        set(raylib_LIBRARIES ${raylib_LIBRARY})
+        set(RAYLIB_IS_STATIC FALSE)
+    else()
+        message(FATAL_ERROR "找不到 raylib！安装:\n"
+                "  Ubuntu/Debian: sudo apt install libraylib-dev\n"
+                "  macOS:          brew install raylib\n"
+                "  Windows:        vcpkg install raylib")
+    endif()
 endif()
 
-if(raylib_FOUND)
-    include_directories(${raylib_INCLUDE_DIRS})
-    link_directories(${raylib_LIBRARY_DIRS})
-else()
-    # 备选：直接找头文件和库
-    find_path(raylib_INCLUDE_DIR raylib.h)
-    find_library(raylib_LIBRARY raylib)
-    if(raylib_INCLUDE_DIR)
-        include_directories(${raylib_INCLUDE_DIR})
-    endif()
-    if(raylib_LIBRARY)
-        set(raylib_LIBRARIES ${raylib_LIBRARY})
-    else()
-        # 如果都没找到，fallback 到系统路径
-        include_directories(/usr/local/include /usr/include)
-        set(raylib_LIBRARIES raylib)
-    endif()
+# 查找 raylib 头文件
+find_path(raylib_INCLUDE_DIR raylib.h
+    PATHS /usr/local/include /usr/include /opt/homebrew/include)
+if(NOT raylib_INCLUDE_DIR)
+    message(FATAL_ERROR "找不到 raylib.h 头文件！")
 endif()
+include_directories(${raylib_INCLUDE_DIR})
+
+# ============================================================================
+# 可执行文件
+# ============================================================================
 
 add_executable(main_c
         src/main.c
@@ -44,12 +62,17 @@ target_include_directories(main_c PRIVATE src/core src/modules src/ui)
 
 # 跨平台编译选项
 if(MSVC)
-    # MSVC: 启用 UTF-8 源码编码，禁用 strdup 警告
     target_compile_options(main_c PRIVATE /utf-8)
     target_compile_definitions(main_c PRIVATE _CRT_NONSTDC_NO_DEPRECATE)
 else()
-    # GCC/Clang: 指定 UTF-8 源码和执行编码
     target_compile_options(main_c PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()
 
 target_link_libraries(main_c PRIVATE ${raylib_LIBRARIES})
+
+# 静态链接时需要链接 raylib 的系统依赖
+if(RAYLIB_IS_STATIC AND NOT MSVC)
+    target_link_libraries(main_c PRIVATE m pthread dl)
+    # X11 相关（Linux）
+    target_link_libraries(main_c PRIVATE X11 Xrandr Xinerama Xcursor Xi Xxf86vm GL)
+endif()

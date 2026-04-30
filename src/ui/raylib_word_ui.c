@@ -921,7 +921,7 @@ void UIWordCard(WordEntry* entry, Rectangle rect, UIStyle* style) {
  * @param b 结束值
  * @param t 插值因子（0-1）
  */
-float Lerp(float a, float b, float t) { return a + (b - a) * t; }
+static float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 /**
  * 绘制闪卡组件
