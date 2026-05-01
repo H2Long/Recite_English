@@ -1,9 +1,4 @@
-﻿// ============================================================================
-// 背单词软件 - 主程序
-// 功能：学单词、背单词（闪卡）、测试（选择题）、学习进度管理
-// 依赖库：raylib (图形渲染)
-// 重构后：使用 AppState 统一管理所有状态变量
-// ============================================================================
+// 背单词软件 — 主入口
 
 #include "raylib.h"
 #include "app_state.h"
@@ -20,10 +15,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// ============================================================================
-// 宏定义：简化访问器调用
-// ============================================================================
-
 #define STYLE        (AppState_GetStyle())
 #define UI_STATE     (AppState_GetUIState())
 #define CURRENT_MENU (*AppState_GetCurrentMenu())
@@ -32,49 +23,38 @@
 #define TEST         (*AppState_GetTestState())
 #define SELECT_WORD  (*AppState_GetSelectWordState())
 
-// ============================================================================
-// 主程序入口
-// ============================================================================
-
-int main(void) {
-    // 初始化 raylib 窗口
+int main(void)
+{
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
     SetTargetFPS(60);
 
-    // --------------------------------------------------------------------
     // 初始化阶段
-    // --------------------------------------------------------------------
-    loadWordsFromFile(WORDS_FILE_PATH);  // 从文件加载单词数据
-    Account_Init();                    // 初始化账号系统
-    Plan_Init();                       // 初始化学习计划
-    initWords();                       // 初始化单词进度（加载学习进度）
-    srand((unsigned int)(time(NULL) ^ (uintptr_t)&srand));  // 初始化随机数种子
-    loadFonts();                       // 加载中英文字体
-    UISetFonts(g_mergedFont, g_englishFont);  // 设置 UI 使用的字体
-    UISetLatinFont(g_latinFont);       // 设置 IPA 音标字体
+    loadWordsFromFile(WORDS_FILE_PATH);           // 1. 加载单词
+    Account_Init();                               // 2. 账号系统
+    Plan_Init();                                  // 3. 学习计划
+    initWords();                                  // 4. 单词进度
+    srand((unsigned int)(time(NULL) ^ (uintptr_t)&srand));  // 5. 随机种子
+    loadFonts();                                  // 6. 字体
+    UISetFonts(g_mergedFont, g_englishFont);       // 7. UI字体
+    UISetLatinFont(g_latinFont);                  // 8. IPA字体
 
-    // 初始化应用状态（统一管理所有状态变量）
     AppState_Init();
     g_app.loginRequired = true;
-
-    // 初始化菜单树
     InitMenuTree();
 
-    // 准备闪卡复习（只显示未复习过的单词）
+    // 准备闪卡复习
     REVIEW.reviewCount = 0;
     for (int j = 0; j < g_wordProgressCount; j++) {
-        if (g_words[j].progress.lastReview == 0) {
+        if(g_words[j].progress.lastReview == 0) {
             REVIEW.reviewIndices[REVIEW.reviewCount++] = j;
         }
     }
     shuffleArray(REVIEW.reviewIndices, REVIEW.reviewCount);
     REVIEW.currentReviewIdx = 0;
 
-    // 准备测试模式（最多10题）
-    TEST.testCount = (g_wordProgressCount < 10) ? g_wordProgressCount : 10;
-    for (int j = 0; j < g_wordProgressCount; j++) {
-        TEST.testIndices[j] = j;
-    }
+    // 准备测试
+    TEST.testCount = g_wordProgressCount < 10 ? g_wordProgressCount : 10;
+    for (int j = 0; j < g_wordProgressCount; j++) TEST.testIndices[j] = j;
     shuffleArray(TEST.testIndices, g_wordProgressCount);
     TEST.currentTestIdx = 0;
     TEST.testCorrect = 0;
@@ -82,109 +62,88 @@ int main(void) {
     TEST.selectedAnswer = -1;
     TEST.answerResult = -1;
 
-    // 初始化 UI 样式（字体大小在此调整）
+    // UI样式
     STYLE->font = g_mergedFont;
-    // 以下是字体大小参数，可根据需要调整
-    STYLE->fontSizeSmall = 22.0f;    // 小号字体（如选项标签）
-    STYLE->fontSizeNormal = 28.0f;   // 普通字体（如按钮文字）
-    STYLE->fontSizeLarge = 46.0f;    // 大号字体（如单词显示）
+    STYLE->fontSizeSmall = 22.0f;
+    STYLE->fontSizeNormal = 28.0f;
+    STYLE->fontSizeLarge = 46.0f;
 
-    // --------------------------------------------------------------------
     // 主循环
-    // --------------------------------------------------------------------
     while (!WindowShouldClose()) {
-        // 更新 UI 状态
         UIBegin(UI_STATE);
-
         BeginDrawing();
         ClearBackground(STYLE->theme.background);
 
-        // 绘制顶部标题栏
+        // 顶部标题栏
         Rectangle topBar = {0, 0, SCREEN_WIDTH, 60};
         DrawRectangleRec(topBar, STYLE->theme.panelBg);
         DrawLineEx((Vector2){0, 60}, (Vector2){SCREEN_WIDTH, 60}, 1, STYLE->theme.inputBorder);
 
-        // 标题文字
         const char* topTitle = u8"背单词软件";
         Vector2 titleSize = MeasureTextAuto(topTitle, 40, 1);
-        DrawTextAuto(topTitle, (Vector2){SCREEN_WIDTH/2 - titleSize.x/2, 8}, 40, 1, STYLE->theme.primary);
+        DrawTextAuto(topTitle, (Vector2){SCREEN_WIDTH/2 - titleSize.x/2, 8},
+            40, 1, STYLE->theme.primary);
 
-        // --------------------------------------------------------------------
-        // 右上角用户信息模块
-        // --------------------------------------------------------------------
-        Rectangle userInfoRect = {SCREEN_WIDTH - 210, 12, 200, 36};
-        bool hoverUser = CheckCollisionPointRec(UI_STATE->mousePos, userInfoRect);
-        if (hoverUser) {
-            DrawRectangleRounded(userInfoRect, 0.2f, 8, Fade(STYLE->theme.primary, 0.15f));
-        }
-        DrawRectangleRoundedLines(userInfoRect, 0.2f, 8, Fade(STYLE->theme.textSecondary, 0.3f));
+        // 右上角用户信息
+        Rectangle userInfo = {SCREEN_WIDTH - 210, 12, 200, 36};
+        bool hov = CheckCollisionPointRec(UI_STATE->mousePos, userInfo);
+        if(hov) { DrawRectangleRounded(userInfo, 0.2f, 8, Fade(STYLE->theme.primary, 0.15f)); }
+        DrawRectangleRoundedLines(userInfo, 0.2f, 8, Fade(STYLE->theme.textSecondary, 0.3f));
 
         const char* userText;
         Color userColor;
-        if (Account_IsLoggedIn()) {
+        if(Account_IsLoggedIn()) {
             userText = Account_GetCurrentUser();
             userColor = STYLE->theme.primary;
-        } else {
+        }
+        else {
             userText = u8"未登录";
             userColor = STYLE->theme.textSecondary;
         }
-        Vector2 userTextSize = MeasureTextAuto(userText, 22, 1);
-        DrawTextAuto(userText,
-                     (Vector2){userInfoRect.x + userInfoRect.width/2 - userTextSize.x/2,
-                               userInfoRect.y + (userInfoRect.height - userTextSize.y)/2},
-                     22, 1, userColor);
+        Vector2 uts = MeasureTextAuto(userText, 22, 1);
+        DrawTextAuto(userText, (Vector2){userInfo.x + userInfo.width/2 - uts.x/2,
+            userInfo.y + (userInfo.height - uts.y)/2}, 22, 1, userColor);
 
-        // 点击跳转到账号管理页面
-        if (hoverUser && UI_STATE->mouseReleased && g_accountMenuNode != NULL) {
+        if(hov && UI_STATE->mouseReleased && g_accountMenuNode != NULL) {
             StackPush(AppState_GetMenuStack(), CURRENT_MENU);
             CURRENT_MENU = g_accountMenuNode;
         }
 
-        // --------------------------------------------------------------------
-        // 绘制左侧树形导航菜单
+        // 左侧导航
         Rectangle menuRect = {10, 70, 230, SCREEN_HEIGHT - 80};
         DrawTreeMenu(menuRect);
 
-        // 根据当前菜单显示对应页面
-        if (CURRENT_MENU->show != NULL) {
-            CURRENT_MENU->show();
-        }
+        // 当前页面
+        if(CURRENT_MENU->show != NULL) { CURRENT_MENU->show(); }
 
-        // --------------------------------------------------------------------
-        // 登录强制层：未登录时覆盖所有页面
-        // --------------------------------------------------------------------
-        // 登录提醒：未登录时在非账号页面显示遮罩
-        if (g_app.loginRequired && !Account_IsLoggedIn()) {
-            bool isAccountPage = (CURRENT_MENU->show == MenuAccount_Show ||
-                                  CURRENT_MENU->show == MenuLogin_Show ||
-                                  CURRENT_MENU->show == MenuRegister_Show);
-            if (!isAccountPage) {
-                // 半透明遮罩
+        // 登录强制层
+        if(g_app.loginRequired && !Account_IsLoggedIn()) {
+            bool isAcc = (CURRENT_MENU->show == MenuAccount_Show
+                       || CURRENT_MENU->show == MenuLogin_Show
+                       || CURRENT_MENU->show == MenuRegister_Show);
+            if(!isAcc) {
                 DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.6f));
-
-                // 提示面板
                 Rectangle panel = {SCREEN_WIDTH/2 - 280, SCREEN_HEIGHT/2 - 160, 560, 320};
                 DrawRectangleRounded(panel, 0.1f, 12, STYLE->theme.panelBg);
                 DrawRectangleRoundedLines(panel, 0.1f, 12, STYLE->theme.primary);
 
-                // 标题
-                DrawTextAuto(u8"请先登录", (Vector2){SCREEN_WIDTH/2 - 80, panel.y + 30}, 36, 1, STYLE->theme.primary);
-                DrawTextAuto(u8"使用本软件前需要登录账号", (Vector2){SCREEN_WIDTH/2 - 140, panel.y + 80}, 22, 1, STYLE->theme.textSecondary);
-                DrawTextAuto(u8"学习进度将按账号独立保存", (Vector2){SCREEN_WIDTH/2 - 130, panel.y + 110}, 22, 1, STYLE->theme.textSecondary);
+                DrawTextAuto(u8"请先登录", (Vector2){SCREEN_WIDTH/2 - 80, panel.y + 30},
+                    36, 1, STYLE->theme.primary);
+                DrawTextAuto(u8"使用本软件前需要登录账号",
+                    (Vector2){SCREEN_WIDTH/2 - 140, panel.y + 80}, 22, 1, STYLE->theme.textSecondary);
+                DrawTextAuto(u8"学习进度将按账号独立保存",
+                    (Vector2){SCREEN_WIDTH/2 - 130, panel.y + 110}, 22, 1, STYLE->theme.textSecondary);
 
-                // 登录按钮
                 Rectangle loginBtn = {SCREEN_WIDTH/2 - 120, panel.y + 170, 240, 55};
-                if (UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 800)) {
-                    if (g_accountMenuNode != NULL) {
+                if(UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 800)) {
+                    if(g_accountMenuNode != NULL) {
                         StackPush(AppState_GetMenuStack(), CURRENT_MENU);
                         CURRENT_MENU = g_accountMenuNode;
                     }
                 }
-
-                // 注册按钮
                 Rectangle regBtn = {SCREEN_WIDTH/2 - 120, panel.y + 240, 240, 55};
-                if (UIButton(u8"注册账号", regBtn, STYLE, UI_STATE, 801)) {
-                    if (g_accountMenuNode != NULL) {
+                if(UIButton(u8"注册账号", regBtn, STYLE, UI_STATE, 801)) {
+                    if(g_accountMenuNode != NULL) {
                         StackPush(AppState_GetMenuStack(), CURRENT_MENU);
                         CURRENT_MENU = g_accountMenuNode;
                     }
@@ -196,13 +155,10 @@ int main(void) {
         UIEnd(UI_STATE);
     }
 
-    // --------------------------------------------------------------------
-    // 清理阶段
-    // --------------------------------------------------------------------
-    AppState_Deinit();    // 释放应用状态
-    unloadFonts();        // 卸载字体
-    freeWordLibrary();    // 释放单词库内存
-    CloseWindow();        // 关闭 raylib 窗口
-
+    // 清理
+    AppState_Deinit();
+    unloadFonts();
+    freeWordLibrary();
+    CloseWindow();
     return 0;
 }
