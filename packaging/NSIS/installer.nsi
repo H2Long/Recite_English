@@ -49,25 +49,29 @@ VIAddVersionKey "LegalCopyright" ""
 Section "安装主程序" SecMain
     SectionIn RO
 
+    !ifndef ROOT
+    !define ROOT "."
+    !endif
+
     SetOutPath "$INSTDIR"
 
     ; 主程序
-    File "build\main_c.exe"
+    File "${ROOT}\build\main_c.exe"
 
     ; 运行时 DLL
-    File /nonfatal "build\*.dll"
+    File /nonfatal "${ROOT}\build\*.dll"
 
     ; 数据文件
     SetOutPath "$INSTDIR\data"
-    File "data\words.txt"
-    File "data\accounts.txt"
-    File /nonfatal "data\plans.txt"
-    File /nonfatal "data\progress.txt"
+    File "${ROOT}\data\words.txt"
+    File "${ROOT}\data\accounts.txt"
+    File /nonfatal "${ROOT}\data\plans.txt"
+    File /nonfatal "${ROOT}\data\progress.txt"
 
     SetOutPath "$INSTDIR\data\fonts"
-    File "data\fonts\NotoSansCJK.otf"
-    File "data\fonts\DejaVuSans.ttf"
-    File "data\fonts\DejaVuSansMono.ttf"
+    File "${ROOT}\data\fonts\NotoSansCJK.otf"
+    File "${ROOT}\data\fonts\DejaVuSans.ttf"
+    File "${ROOT}\data\fonts\DejaVuSansMono.ttf"
 
     ; 写入注册表
     WriteRegStr HKLM "Software\ReciteEnglish" "InstallDir" "$INSTDIR"
