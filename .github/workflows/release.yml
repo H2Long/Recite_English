@@ -10,14 +10,14 @@ jobs:
   # Linux AppImage
   # ============================================================
   build-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libraylib-dev fuse libfuse2 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+          sudo apt-get install -y cmake ninja-build libraylib-dev fuse libfuse2
 
       - name: Build
         run: |
@@ -86,7 +86,7 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$MSYSTEM_PREFIX
           cmake --build .
 
       - name: Verify
