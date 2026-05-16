@@ -14,12 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libraylib-dev fuse libfuse2
+          sudo apt-get install -y cmake ninja-build fuse libfuse2 \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libgl-dev
 
-      - name: Build
+      - name: Build raylib (static)
+        run: |
+          git clone --depth 1 --branch 6.0 https://github.com/raysan5/raylib.git /tmp/raylib
+          cd /tmp/raylib
+          mkdir build && cd build
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_EXAMPLES=OFF \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+          ninja
+          sudo ninja install
+
+      - name: Build project
         run: |
           mkdir build && cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -29,9 +43,9 @@ jobs:
         run: |
           if ldd build/main_c | grep -q libraylib; then
             echo "WARNING: dynamically linked to libraylib"
-          else
-            echo "OK: raylib is statically linked"
+            exit 1
           fi
+          echo "OK: raylib is statically linked"
 
       - name: Download appimagetool
         run: |
@@ -41,7 +55,6 @@ jobs:
 
       - name: Build AppImage
         run: |
-          # AppDir structure
           mkdir -p build/AppDir/usr/bin
           mkdir -p build/AppDir/usr/share/recite-english
           mkdir -p build/AppDir/usr/share/icons/hicolor/scalable/apps
@@ -64,7 +77,7 @@ jobs:
           path: build/背单词软件-x86_64.AppImage
 
   # ============================================================
-  # Windows exe
+  # Windows exe (MSYS2 UCRT64)
   # ============================================================
   build-windows:
     runs-on: windows-latest
@@ -81,17 +94,17 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-raylib
 
       - name: Build
         run: |
           mkdir build && cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$MSYSTEM_PREFIX
-          cmake --build .
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja
 
       - name: Verify
-        run: |
-          ls -la build/main_c.exe
+        run: ls -la build/main_c.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -118,11 +131,9 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir release
-          # Linux AppImage
           cp artifacts/linux-appimage/背单词软件-x86_64.AppImage release/
           chmod +x release/背单词软件-x86_64.AppImage
 
-          # Windows: pack exe + data into zip
           mkdir -p release/win-dist
           cp artifacts/windows-exe/main_c.exe release/win-dist/
           cp -r data release/win-dist/
