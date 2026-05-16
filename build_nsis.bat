@@ -9,15 +9,27 @@ REM ============================================================================
 
 echo [INFO] 检查编译产物...
 
-if not exist "build\Release\main_c.exe" (
-    echo [ERROR] 未找到 build\Release\main_c.exe
-    echo [INFO]  请先编译:
-    echo         mkdir build ^&^& cd build
-    echo         cmake .. -DCMAKE_BUILD_TYPE=Release
-    echo         cmake --build . --config Release
+REM 支持两种编译路径: MSYS2 (build\main_c.exe) 和 VS2022 (build\Release\main_c.exe)
+if exist "build\Release\main_c.exe" (
+    set "EXE_PATH=build\Release\main_c.exe"
+) else if exist "build\main_c.exe" (
+    set "EXE_PATH=build\main_c.exe"
+) else (
+    echo [ERROR] 未找到编译产物，请先编译:
+    echo.
+    echo   MSYS2 方式:
+    echo     mkdir build ^&^& cd build
+    echo     cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+    echo     cmake --build .
+    echo.
+    echo   VS2022 方式:
+    echo     mkdir build ^&^& cd build
+    echo     cmake .. -DCMAKE_BUILD_TYPE=Release
+    echo     cmake --build . --config Release
     pause
     exit /b 1
 )
+echo [INFO] 找到: %EXE_PATH%
 
 echo [INFO] 检查 NSIS...
 where makensis >nul 2>&1

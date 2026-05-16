@@ -24,8 +24,6 @@ VIAddVersionKey "LegalCopyright" ""
 
 ; ---- 界面 ----
 !define MUI_ABORTWARNING
-!define MUI_ICON "packaging\NSIS\installer-icon.ico"
-!define MUI_UNICON "packaging\NSIS\installer-icon.ico"
 
 ; ---- 安装页面 ----
 !insertmacro MUI_PAGE_WELCOME
@@ -49,8 +47,12 @@ Section "安装主程序" SecMain
 
     SetOutPath "$INSTDIR"
 
-    ; 主程序
-    File "build\Release\main_c.exe"
+    ; 主程序（MSYS2 产出在 build\，VS2022 产出在 build\Release\，优先找 Release）
+    !if /FileExists "build\Release\main_c.exe"
+        File "build\Release\main_c.exe"
+    !else
+        File "build\main_c.exe"
+    !endif
 
     ; 数据文件
     SetOutPath "$INSTDIR\data"
