@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build fuse libfuse2 \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
-            libxi-dev libgl-dev
+            libxi-dev libgl-dev libxxf86vm-dev
 
       - name: Build raylib (static)
         run: |
@@ -101,7 +101,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
-          ninja
+          ninja 2>&1
 
       - name: Verify
         run: ls -la build/main_c.exe
