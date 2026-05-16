@@ -121,8 +121,12 @@ jobs:
 
       - name: Build NSIS installer
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
           $ver = '${{ github.ref_name }}' -replace '^v', ''
+          Write-Host "Current dir: $(Get-Location)"
+          Write-Host "Build contents:"
+          Get-ChildItem build\ -ErrorAction SilentlyContinue
           & "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=$ver packaging\NSIS\installer.nsi
 
       - name: Upload artifacts
