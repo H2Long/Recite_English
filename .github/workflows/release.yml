@@ -115,13 +115,26 @@ jobs:
       - name: Verify
         run: ls -la build/main_c.exe build/*.dll 2>/dev/null || ls -la build/main_c.exe
 
-      - name: Upload artifact
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis --no-progress -y
+
+      - name: Build NSIS installer
+        shell: cmd
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set "V=%VERSION:v=%"
+          "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=%V% packaging\NSIS\installer.nsi
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
           path: |
             build/main_c.exe
             build/*.dll
+            build/*-Setup-*.exe
 
   # ============================================================
   # Create GitHub Release
@@ -155,6 +168,9 @@ jobs:
           zip -r "背单词软件-${GITHUB_REF_NAME}-windows.zip" win-dist/
           rm -rf win-dist
 
+          # NSIS installer
+          cp artifacts/windows-exe/*-Setup-*.exe release/ 2>/dev/null || true
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -162,3 +178,4 @@ jobs:
           files: |
             release/背单词软件-x86_64.AppImage
             release/背单词软件-${{ github.ref_name }}-windows.zip
+            release/*-Setup-*.exe

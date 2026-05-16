@@ -1,24 +1,29 @@
 ; ============================================================================
 ; 背单词软件 NSIS 安装脚本
-; 用法: 在 Windows 上用 NSIS 编译此脚本生成安装程序
-; 前置: 先用 CMake 编译出 build\Release\main_c.exe
+; 用法: makensis /DVERSION=5.0.1 installer.nsi
+; 前置: 先用 CMake 编译出 build\main_c.exe
 ; ============================================================================
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 
+; ---- 版本（从命令行 /DVERSION=x.y.z 传入）----
+!ifndef VERSION
+!define VERSION "0.0.0"
+!endif
+
 ; ---- 基本信息 ----
 Name "背单词软件"
-OutFile "build\背单词软件-Setup-v5.0.0.exe"
+OutFile "build\背单词软件-Setup-v${VERSION}.exe"
 InstallDir "$PROGRAMFILES\ReciteEnglish"
 InstallDirRegKey HKLM "Software\ReciteEnglish" "InstallDir"
 RequestExecutionLevel admin
 Unicode True
 
 ; ---- 版本信息 ----
-VIProductVersion "5.0.0.0"
+VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "背单词软件"
-VIAddVersionKey "ProductVersion" "5.0.0"
+VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileDescription" "英语单词记忆桌面应用"
 VIAddVersionKey "LegalCopyright" ""
 
@@ -47,12 +52,11 @@ Section "安装主程序" SecMain
 
     SetOutPath "$INSTDIR"
 
-    ; 主程序（MSYS2 产出在 build\，VS2022 产出在 build\Release\，优先找 Release）
-    !if /FileExists "build\Release\main_c.exe"
-        File "build\Release\main_c.exe"
-    !else
-        File "build\main_c.exe"
-    !endif
+    ; 主程序
+    File "build\main_c.exe"
+
+    ; 运行时 DLL
+    File /nonfatal "build\*.dll"
 
     ; 数据文件
     SetOutPath "$INSTDIR\data"
@@ -75,7 +79,7 @@ Section "安装主程序" SecMain
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ReciteEnglish" \
         "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ReciteEnglish" \
-        "DisplayVersion" "5.0.0"
+        "DisplayVersion" "${VERSION}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ReciteEnglish" \
         "Publisher" "ReciteEnglish"
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ReciteEnglish" \
@@ -107,6 +111,7 @@ SectionEnd
 Section "Uninstall"
     ; 删除文件
     Delete "$INSTDIR\main_c.exe"
+    Delete "$INSTDIR\*.dll"
     Delete "$INSTDIR\data\words.txt"
     Delete "$INSTDIR\data\accounts.txt"
     Delete "$INSTDIR\data\plans.txt"
