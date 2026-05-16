@@ -11,6 +11,8 @@ jobs:
   # ============================================================
   build-linux:
     runs-on: ubuntu-24.04
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -80,7 +82,9 @@ jobs:
   # Windows exe (MSYS2 UCRT64)
   # ============================================================
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     defaults:
       run:
         shell: msys2 {0}
@@ -103,11 +107,13 @@ jobs:
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja 2>&1
 
-      - name: Copy raylib DLL
-        run: cp /ucrt64/bin/raylib.dll build/
+      - name: Copy runtime DLLs
+        run: |
+          cp /ucrt64/bin/raylib.dll build/ 2>/dev/null || true
+          cp /ucrt64/bin/glfw3.dll build/ 2>/dev/null || true
 
       - name: Verify
-        run: ls -la build/main_c.exe build/raylib.dll
+        run: ls -la build/main_c.exe build/*.dll 2>/dev/null || ls -la build/main_c.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -115,14 +121,16 @@ jobs:
           name: windows-exe
           path: |
             build/main_c.exe
-            build/raylib.dll
+            build/*.dll
 
   # ============================================================
   # Create GitHub Release
   # ============================================================
   release:
     needs: [build-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
@@ -141,7 +149,7 @@ jobs:
 
           mkdir -p release/win-dist
           cp artifacts/windows-exe/main_c.exe release/win-dist/
-          cp artifacts/windows-exe/raylib.dll release/win-dist/
+          cp artifacts/windows-exe/*.dll release/win-dist/ 2>/dev/null || true
           cp -r data release/win-dist/
           cd release
           zip -r "背单词软件-${GITHUB_REF_NAME}-windows.zip" win-dist/
