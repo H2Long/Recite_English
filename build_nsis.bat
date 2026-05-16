@@ -3,7 +3,7 @@ REM ============================================================================
 REM Windows NSIS 安装程序打包脚本
 REM 前置条件:
 REM   1. 已安装 NSIS (https://nsis.sourceforge.io/Download)
-REM   2. 已用 CMake 编译出 build\Release\main_c.exe
+REM   2. 已编译出 main_c.exe（MSYS2 在 build\，VS2022 在 build\Release\）
 REM 用法: 双击运行 或 在命令行执行 build_nsis.bat
 REM ============================================================================
 
@@ -11,9 +11,9 @@ echo [INFO] 检查编译产物...
 
 REM 支持两种编译路径: MSYS2 (build\main_c.exe) 和 VS2022 (build\Release\main_c.exe)
 if exist "build\Release\main_c.exe" (
-    set "EXE_PATH=build\Release\main_c.exe"
+    echo [INFO] 找到: build\Release\main_c.exe
 ) else if exist "build\main_c.exe" (
-    set "EXE_PATH=build\main_c.exe"
+    echo [INFO] 找到: build\main_c.exe
 ) else (
     echo [ERROR] 未找到编译产物，请先编译:
     echo.
@@ -29,7 +29,6 @@ if exist "build\Release\main_c.exe" (
     pause
     exit /b 1
 )
-echo [INFO] 找到: %EXE_PATH%
 
 echo [INFO] 检查 NSIS...
 where makensis >nul 2>&1
