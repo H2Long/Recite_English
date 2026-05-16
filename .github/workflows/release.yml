@@ -103,14 +103,19 @@ jobs:
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja 2>&1
 
+      - name: Copy raylib DLL
+        run: cp /ucrt64/bin/raylib.dll build/
+
       - name: Verify
-        run: ls -la build/main_c.exe
+        run: ls -la build/main_c.exe build/raylib.dll
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: build/main_c.exe
+          path: |
+            build/main_c.exe
+            build/raylib.dll
 
   # ============================================================
   # Create GitHub Release
@@ -136,6 +141,7 @@ jobs:
 
           mkdir -p release/win-dist
           cp artifacts/windows-exe/main_c.exe release/win-dist/
+          cp artifacts/windows-exe/raylib.dll release/win-dist/
           cp -r data release/win-dist/
           cd release
           zip -r "背单词软件-${GITHUB_REF_NAME}-windows.zip" win-dist/

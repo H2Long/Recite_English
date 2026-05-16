@@ -83,8 +83,8 @@ endif()
 target_link_libraries(main_c PRIVATE ${raylib_LIBRARIES})
 
 # 静态链接时需要链接 raylib 的系统依赖
-if(RAYLIB_IS_STATIC AND NOT MSVC)
+# 注意：MSYS2 下的 .a 文件可能是导入库（libraylib.dll.a），并不是真正的静态库
+if(RAYLIB_IS_STATIC AND NOT MSVC AND NOT MINGW)
     target_link_libraries(main_c PRIVATE m pthread dl)
-    # X11 相关（Linux）
     target_link_libraries(main_c PRIVATE X11 Xrandr Xinerama Xcursor Xi Xxf86vm GL)
 endif()
