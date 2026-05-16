@@ -120,11 +120,13 @@ jobs:
         run: choco install nsis --no-progress -y
 
       - name: Build NSIS installer
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
+        shell: cmd
         run: |
-          $ver = '${{ github.ref_name }}' -replace '^v', ''
-          & "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=$ver /DROOT="$pwd" packaging\NSIS\installer.nsi
+          cd /d %GITHUB_WORKSPACE%
+          dir build\main_c.exe
+          set "V=%GITHUB_REF_NAME%"
+          set "V=%V:v=%"
+          "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=%V% packaging\NSIS\installer.nsi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
