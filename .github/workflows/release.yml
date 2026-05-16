@@ -1,0 +1,139 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ============================================================
+  # Linux AppImage
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libraylib-dev fuse libfuse2 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+
+      - name: Build
+        run: |
+          mkdir build && cd build
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja
+
+      - name: Verify static link
+        run: |
+          if ldd build/main_c | grep -q libraylib; then
+            echo "WARNING: dynamically linked to libraylib"
+          else
+            echo "OK: raylib is statically linked"
+          fi
+
+      - name: Download appimagetool
+        run: |
+          curl -fSL -o build/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x build/appimagetool
+
+      - name: Build AppImage
+        run: |
+          # AppDir structure
+          mkdir -p build/AppDir/usr/bin
+          mkdir -p build/AppDir/usr/share/recite-english
+          mkdir -p build/AppDir/usr/share/icons/hicolor/scalable/apps
+
+          cp build/main_c build/AppDir/usr/bin/
+          cp -r data build/AppDir/usr/share/recite-english/
+          cp packaging/AppImage/AppRun build/AppDir/
+          chmod +x build/AppDir/AppRun
+          cp packaging/AppImage/背单词软件.desktop build/AppDir/
+          cp packaging/AppImage/recite-english.svg build/AppDir/
+          cp packaging/AppImage/recite-english.svg build/AppDir/usr/share/icons/hicolor/scalable/apps/
+
+          cd build
+          ARCH=x86_64 ./appimagetool --no-appstream AppDir 背单词软件-x86_64.AppImage
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: build/背单词软件-x86_64.AppImage
+
+  # ============================================================
+  # Windows exe
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-raylib
+
+      - name: Build
+        run: |
+          mkdir build && cd build
+          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+
+      - name: Verify
+        run: |
+          ls -la build/main_c.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: build/main_c.exe
+
+  # ============================================================
+  # Create GitHub Release
+  # ============================================================
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir release
+          # Linux AppImage
+          cp artifacts/linux-appimage/背单词软件-x86_64.AppImage release/
+          chmod +x release/背单词软件-x86_64.AppImage
+
+          # Windows: pack exe + data into zip
+          mkdir -p release/win-dist
+          cp artifacts/windows-exe/main_c.exe release/win-dist/
+          cp -r data release/win-dist/
+          cd release
+          zip -r "背单词软件-${GITHUB_REF_NAME}-windows.zip" win-dist/
+          rm -rf win-dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/背单词软件-x86_64.AppImage
+            release/背单词软件-${{ github.ref_name }}-windows.zip
