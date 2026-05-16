@@ -32,7 +32,6 @@ VIAddVersionKey "LegalCopyright" ""
 
 ; ---- 安装页面 ----
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "packaging\NSIS\LICENSE.txt"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH

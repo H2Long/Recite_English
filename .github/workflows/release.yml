@@ -120,12 +120,10 @@ jobs:
         run: choco install nsis --no-progress -y
 
       - name: Build NSIS installer
-        shell: cmd
-        env:
-          VERSION: ${{ github.ref_name }}
+        shell: pwsh
         run: |
-          set "V=%VERSION:v=%"
-          "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=%V% packaging\NSIS\installer.nsi
+          $ver = '${{ github.ref_name }}' -replace '^v', ''
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /DVERSION=$ver packaging\NSIS\installer.nsi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
