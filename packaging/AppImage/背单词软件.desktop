@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=背单词软件
+Name[en]=Recite English
+Comment=英语单词记忆桌面应用
+Comment[en]=English vocabulary memorization desktop app
+Exec=main_c
+Icon=recite-english
+Terminal=false
+Categories=Education;Languages;
+Keywords=english;vocabulary;words;learn;单词;背单词;英语;
+StartupWMClass=main_c
