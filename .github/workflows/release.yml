@@ -110,6 +110,7 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-raylib
+            zip
 
       - name: Build
         run: |
