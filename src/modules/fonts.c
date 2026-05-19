@@ -92,7 +92,6 @@ void load_fonts(void)
 {
     g_mergedFont = GetFontDefault();
     g_latinFont = GetFontDefault();
-
     // 英文字体
     const char* englishCandidates[] = {
         "./data/fonts/DejaVuSans.ttf",
@@ -130,7 +129,6 @@ void load_fonts(void)
     if(g_englishFont.texture.id == 0) {
         g_englishFont = GetFontDefault();
     }
-
     // IPA 音标字体
     const char* ipaCandidates[] = {
         "./data/fonts/DejaVuSans.ttf", "./data/fonts/DejaVuSansMono.ttf",
@@ -190,7 +188,6 @@ void load_fonts(void)
     if(g_latinFont.texture.id == 0 || g_latinFont.recs == NULL) {
         g_latinFont = GetFontDefault();
     }
-
     // 中文字体 + 合并字体
 #if defined(_WIN32)
     const char* cn[] = {
@@ -226,7 +223,6 @@ void load_fonts(void)
             break;
         }
     }
-
     g_chineseFont = GetFontDefault();
     if(fontPath != NULL) {
         const char* allChinese =

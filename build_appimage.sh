@@ -76,7 +76,7 @@ OUTPUT="${BUILD_DIR}/背单词软件-${ARCH}.AppImage"
 rm -f "$OUTPUT"
 
 info "正在生成 AppImage..."
-ARCH=${ARCH} "$APPIMAGETOOL" --no-appstream "${APPDIR}" "$OUTPUT" 2>&1
+ARCH=${ARCH} "$APPIMAGETOOL" --appimage-extract-and-run --no-appstream "${APPDIR}" "$OUTPUT" 2>&1
 
 if [ -f "$OUTPUT" ]; then
     chmod +x "$OUTPUT"

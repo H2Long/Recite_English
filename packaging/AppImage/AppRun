@@ -2,6 +2,25 @@
 # AppRun — AppImage 入口脚本
 # cd 到 data/ 所在目录（程序用 ./data/ 相对路径读文件），再启动二进制
 
-SELF_DIR="$(dirname "$(readlink -f "$0")")"
-cd "$SELF_DIR/usr/share/recite-english" || exit 1
-exec "$SELF_DIR/usr/bin/main_c" "$@"
+# $APPDIR 由 AppImage 运行时自动设置，比 readlink -f 更可靠
+if [ -z "$APPDIR" ]; then
+    APPDIR="$(cd "$(dirname "$0")" && pwd -P)"
+fi
+
+DATA_DIR="$APPDIR/usr/share/recite-english"
+BIN="$APPDIR/usr/bin/main_c"
+
+if [ ! -d "$DATA_DIR" ]; then
+    echo "错误: 数据目录不存在: $DATA_DIR" >&2
+    echo "AppImage 挂载点: $APPDIR" >&2
+    ls -la "$APPDIR/usr/share/" 2>&1 >&2
+    exit 1
+fi
+
+if [ ! -x "$BIN" ]; then
+    echo "错误: 找不到可执行文件: $BIN" >&2
+    exit 1
+fi
+
+cd "$DATA_DIR" || exit 1
+exec "$BIN" "$@"

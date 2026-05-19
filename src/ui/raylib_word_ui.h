@@ -116,22 +116,17 @@ void UILabel(const char* text, Rectangle rect, UIStyle* style, Color color);
 void UIBeginScrollView(UIScrollView* scroll, Rectangle viewport, Vector2 contentSize);
 void UIEndScrollView(UIScrollView* scroll, UIStyle* style, UIState* state);
 bool UIListItem(const char* text, Rectangle itemRect, UIStyle* style, UIState* state);
-
 // 文本输入
 bool UITextBox(UITextBoxState* state, Rectangle rect, UIStyle* style, UIState* uistate, bool password);
-
 // 文本绘制
 void UIDrawText(const char* text, Vector2 pos, float fontSize, float spacing, Color tint);
 void UIDrawTextRec(const char* text, Rectangle rec, float fontSize, float spacing, bool wordWrap, Color tint);
-
 // 单词卡片/闪卡
 void UIWordCard(WordEntry* entry, Rectangle rect, UIStyle* style);
 int UIFlashCard(WordEntry* entry, Rectangle rect, CardFace* face, UIStyle* style, UIState* state, float* animTime);
-
 // 选择题
 int UIMultipleChoice(const char* question, const char* options[], int optionCount,
                      int correctIndex, Rectangle rect, UIStyle* style, UIState* state);
-
 // 搜索栏
 void UISearchBar(SearchBarState* sb, Rectangle rect, UIStyle* style, UIState* state);
 
