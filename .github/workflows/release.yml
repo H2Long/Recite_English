@@ -55,6 +55,14 @@ jobs:
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x build/appimagetool
 
+      - name: Package Linux portable tar.gz
+        run: |
+          mkdir -p dist/背单词软件
+          cp build/main_c dist/背单词软件/
+          cp -r data dist/背单词软件/
+          cd dist
+          tar czf "../build/背单词软件-linux-x86_64.tar.gz" 背单词软件/
+
       - name: Build AppImage
         run: |
           mkdir -p build/AppDir/usr/bin
@@ -72,11 +80,13 @@ jobs:
           cd build
           ARCH=x86_64 ./appimagetool --no-appstream AppDir 背单词软件-x86_64.AppImage
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-appimage
-          path: build/背单词软件-x86_64.AppImage
+          name: linux-package
+          path: |
+            build/背单词软件-x86_64.AppImage
+            build/背单词软件-linux-x86_64.tar.gz
 
   # ============================================================
   # Windows exe (MSYS2 UCRT64)
@@ -115,11 +125,21 @@ jobs:
       - name: Verify
         run: ls -la build/main_c.exe build/*.dll 2>/dev/null || ls -la build/main_c.exe
 
-      - name: Upload artifact
+      - name: Package Windows portable zip
+        run: |
+          mkdir -p dist/背单词软件
+          cp build/main_c.exe dist/背单词软件/
+          cp build/*.dll dist/背单词软件/ 2>/dev/null || true
+          cp -r data dist/背单词软件/
+          cd dist
+          zip -r "../build/背单词软件-windows-x86_64.zip" 背单词软件/
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
+          name: windows-package
           path: |
+            build/背单词软件-windows-x86_64.zip
             build/main_c.exe
             build/*.dll
 
@@ -144,16 +164,10 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir release
-          cp artifacts/linux-appimage/背单词软件-x86_64.AppImage release/
+          cp artifacts/linux-package/背单词软件-x86_64.AppImage release/
+          cp artifacts/linux-package/背单词软件-linux-x86_64.tar.gz release/
+          cp artifacts/windows-package/背单词软件-windows-x86_64.zip release/
           chmod +x release/背单词软件-x86_64.AppImage
-
-          mkdir -p release/win-dist
-          cp artifacts/windows-exe/main_c.exe release/win-dist/
-          cp artifacts/windows-exe/*.dll release/win-dist/ 2>/dev/null || true
-          cp -r data release/win-dist/
-          cd release
-          zip -r "背单词软件-${GITHUB_REF_NAME}-windows.zip" win-dist/
-          rm -rf win-dist
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -161,4 +175,5 @@ jobs:
           generate_release_notes: true
           files: |
             release/背单词软件-x86_64.AppImage
-            release/背单词软件-${{ github.ref_name }}-windows.zip
+            release/背单词软件-linux-x86_64.tar.gz
+            release/背单词软件-windows-x86_64.zip
