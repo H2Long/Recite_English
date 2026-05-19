@@ -165,16 +165,17 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir release
-          cp artifacts/linux-package/背单词软件-x86_64.AppImage release/
-          cp artifacts/linux-package/背单词软件-linux-x86_64.tar.gz release/
-          cp artifacts/windows-package/背单词软件-windows-x86_64.zip release/
-          chmod +x release/背单词软件-x86_64.AppImage
+          # 用 ASCII 文件名避免 softprops/action-gh-release 对 CJK 编码问题
+          cp artifacts/linux-package/背单词软件-x86_64.AppImage release/ReciteEnglish-x86_64.AppImage
+          cp artifacts/linux-package/背单词软件-linux-x86_64.tar.gz release/ReciteEnglish-linux-x86_64.tar.gz
+          cp artifacts/windows-package/背单词软件-windows-x86_64.zip release/ReciteEnglish-windows-x86_64.zip
+          chmod +x release/ReciteEnglish-x86_64.AppImage
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            release/背单词软件-x86_64.AppImage
-            release/背单词软件-linux-x86_64.tar.gz
-            release/背单词软件-windows-x86_64.zip
+            release/ReciteEnglish-x86_64.AppImage
+            release/ReciteEnglish-linux-x86_64.tar.gz
+            release/ReciteEnglish-windows-x86_64.zip
