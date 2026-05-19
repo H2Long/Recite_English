@@ -20,6 +20,8 @@ void InitMenuTree(void)
     ConnectMenuTree(planRoot, progress);
     MENU* settings = CreatMenuTreeNode(NULL, MenuSettings_Show);
     MENU* account = CreatMenuTreeNode(NULL, MenuAccount_Show);
+    MENU* deleteAccount = CreatMenuTreeNode(NULL, MenuDeleteAccount_Show);
+    ConnectMenuTree(account, deleteAccount);
     MENU* wordMgr = CreatMenuTreeNode(NULL, MenuWordManager_Show);
     MENU* reviewRoot = CreatMenuTreeNode(NULL, MenuReviewRoot_Show);
     MENU* cardReview = CreatMenuTreeNode(NULL, MenuCardReview_Show);
@@ -44,16 +46,6 @@ void InitMenuTree(void)
     g_app.currentMenu = g_app.rootMenu;
 }
 
-void FreeMenuTree(void) {
-    if(g_app.rootMenu == NULL) { return ; }
-    for (int i = 0; i < g_app.rootMenu->childindex; i++) {
-        if(g_app.rootMenu->child[i]) { free(g_app.rootMenu->child[i]); }
-    }
-    free(g_app.rootMenu);
-    g_app.rootMenu = NULL;
-    g_app.currentMenu = NULL;
-}
-
 const char* GetMenuItemText(MENU* menu) {
     if(menu == NULL) { return ""; }
     if(menu == g_app.rootMenu) { return u8"主菜单"; }
@@ -68,6 +60,7 @@ const char* GetMenuItemText(MENU* menu) {
     if(menu->show == MenuProgress_Show) { return u8"学习进度"; }
     if(menu->show == MenuSettings_Show) { return u8"设置"; }
     if(menu->show == MenuAccount_Show) { return u8"账号管理"; }
+    if(menu->show == MenuDeleteAccount_Show) { return u8"删除账号"; }
     if(menu->show == MenuWordManager_Show) { return u8"词库管理"; }
     return "";
 }

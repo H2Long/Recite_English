@@ -14,7 +14,8 @@ void Plan_SetState(PlanState* state) { g_pPlanState = state; }
 static PlanState* getState(void) { return g_pPlanState ? g_pPlanState : &g_planInternal; }
 
 void Plan_SetFilePath(const char* path) {
-    strcpy(g_planFilePath, path);
+    strncpy(g_planFilePath, path, sizeof(g_planFilePath) - 1);
+    g_planFilePath[sizeof(g_planFilePath) - 1] = '\0';
     Plan_Init();
 }
 
@@ -161,8 +162,10 @@ int Plan_GetRemainingToday(void) {
 void Plan_AddDefaults(void) {
     PlanState* state = getState();
     for (int i = 0; i < 4 && state->planCount < MAX_PLANS; i++) {
+        if(find_plan(g_defaultPlans[i].name) >= 0) { continue; }
         LearningPlan* p = &state->plans[state->planCount];
         strncpy(p->name, g_defaultPlans[i].name, PLAN_NAME_MAX - 1);
+        p->name[PLAN_NAME_MAX - 1] = '\0';
         p->dailyWordCount = g_defaultPlans[i].daily;
         p->totalDays = g_defaultPlans[i].days;
         p->currentDay = 0;
@@ -171,5 +174,5 @@ void Plan_AddDefaults(void) {
         p->studiedToday = 0;
         state->planCount++;
     }
-    if(state->planCount > 0) { Plan_SetActive(0); }
+    if(state->activePlanIndex < 0 && state->planCount > 0) { Plan_SetActive(0); }
 }

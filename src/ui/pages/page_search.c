@@ -3,12 +3,12 @@
 #include "pages.h"
 
 void MenuSearch_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_VERTICAL, 25, 30);
 
     // 搜索区域
     Rectangle sp = UILayoutNext(&lay, -1, 130);
-    DrawRectangleRounded(sp, 0.1f, 12, STYLE->theme.panelBg);
+    UIDrawCard(sp, 0.08f, STYLE);
     DrawTextAuto(u8"查找单词", (Vector2){sp.x + 25, sp.y + 15}, 28, 1, STYLE->theme.textPrimary);
     DrawTextAuto(u8"支持正则表达式，例如: ab.*  或  ^acc.*",
         (Vector2){sp.x + 25, sp.y + 55}, 18, 1, STYLE->theme.textSecondary);
@@ -21,25 +21,25 @@ void MenuSearch_Show(void) {
     if(UIButton(u8"搜索", br, STYLE, UI_STATE, 7)) {
         const char* q = SEARCH.searchBar.textState.buffer;
         if(strlen(q) > 0) {
-            SEARCH.searchResultCount = searchWordsByRegex(q, SEARCH.searchResults, MAX_WORDS);
+            SEARCH.searchResultCount = search_words_by_regex(q, SEARCH.searchResults, MAX_WORDS);
             if(SEARCH.searchResultCount == 0) {
-                SEARCH.searchResultCount = searchWordsSimple(q, SEARCH.searchResults, MAX_WORDS);
+                SEARCH.searchResultCount = search_words_simple(q, SEARCH.searchResults, MAX_WORDS);
             }
         }
     }
     int curLen = strlen(SEARCH.searchBar.textState.buffer);
     if(curLen > 0 && curLen != lastLen) {
         const char* q = SEARCH.searchBar.textState.buffer;
-        SEARCH.searchResultCount = searchWordsByRegex(q, SEARCH.searchResults, MAX_WORDS);
+        SEARCH.searchResultCount = search_words_by_regex(q, SEARCH.searchResults, MAX_WORDS);
         if(SEARCH.searchResultCount == 0) {
-            SEARCH.searchResultCount = searchWordsSimple(q, SEARCH.searchResults, MAX_WORDS);
+            SEARCH.searchResultCount = search_words_simple(q, SEARCH.searchResults, MAX_WORDS);
         }
     }
     lastLen = curLen;
 
     // 搜索结果
     Rectangle rp = UILayoutNext(&lay, -1, -1);
-    DrawRectangleRounded(rp, 0.1f, 12, STYLE->theme.panelBg);
+    UIDrawCard(rp, 0.08f, STYLE);
 
     if(SEARCH.searchResultCount == 0 && strlen(SEARCH.searchBar.textState.buffer) > 0) {
         Vector2 ms = MeasureTextAuto(u8"没有找到匹配的单词", 26, 1);
@@ -55,13 +55,18 @@ void MenuSearch_Show(void) {
         Rectangle lr = {rp.x, rp.y + 55, rp.width, rp.height - 70};
         UIScrollView sv = {0};
         sv.viewport = lr;
+        sv.scrollOffset.y = SEARCH.scrollOffset;
         sv.contentSize = (Vector2){lr.width - 30, SEARCH.searchResultCount * 235.0f};
         UIBeginScrollView(&sv, lr, sv.contentSize);
 
         for (int i = 0; i < SEARCH.searchResultCount; i++) {
             WordEntry* e = &g_words[SEARCH.searchResults[i]].entry;
             Rectangle ir2 = {lr.x + 20, lr.y + i*230 - sv.scrollOffset.y, lr.width - 40, 215};
-            DrawRectangleRounded(ir2, 0.1f, 8, STYLE->theme.inputBg);
+            // 跳过完全在视口上方的卡片（避免阴影溢出）
+            if(ir2.y + ir2.height < lr.y) { continue; }
+            // 跳过完全在视口下方的卡片
+            if(ir2.y > lr.y + lr.height) { break; }
+            UIDrawCard(ir2, 0.08f, STYLE);
             DrawTextAuto(e->word, (Vector2){ir2.x + 20, ir2.y + 15}, 36, 1, STYLE->theme.primary);
             if(e->phonetic && *e->phonetic) {
                 DrawTextAuto(e->phonetic, (Vector2){ir2.x + 20, ir2.y + 55}, 24, 1, STYLE->theme.textSecondary);
@@ -81,6 +86,7 @@ void MenuSearch_Show(void) {
             }
         }
         UIEndScrollView(&sv, STYLE, UI_STATE);
+        SEARCH.scrollOffset = sv.scrollOffset.y;
     }
     else {
         Vector2 ms = MeasureTextAuto(u8"请在上方输入要查找的单词", 24, 1);

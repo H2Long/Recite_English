@@ -7,6 +7,14 @@
 
 AppState g_app = {0};
 
+static void FreeMenuRecursive(MENU* node) {
+    if(node == NULL) { return; }
+    for(int i = 0; i < node->childindex; i++) {
+        FreeMenuRecursive(node->child[i]);
+    }
+    free(node);
+}
+
 void AppState_Init(void)
 {
     UIStyleInit(&g_app.style);
@@ -34,6 +42,9 @@ void AppState_Init(void)
     g_app.test.answerResult = -1;
     g_app.test.currentCorrectIdx = 0;
     memset(g_app.test.wrongOptionsUsed, 0, sizeof(g_app.test.wrongOptionsUsed));
+    memset(g_app.test.wrongIdx, 0, sizeof(g_app.test.wrongIdx));
+    g_app.test.wrongCnt = 0;
+    g_app.test.lastIdx = -1;
 
     memset(g_app.search.searchInput, 0, sizeof(g_app.search.searchInput));
     g_app.search.searchResultCount = 0;
@@ -47,6 +58,9 @@ void AppState_Init(void)
     g_app.selectWord.answerResult = -1;
     g_app.selectWord.currentCorrectIdx = 0;
     memset(g_app.selectWord.wrongOptionsUsed, 0, sizeof(g_app.selectWord.wrongOptionsUsed));
+    memset(g_app.selectWord.wrongIdx, 0, sizeof(g_app.selectWord.wrongIdx));
+    g_app.selectWord.wrongCnt = 0;
+    g_app.selectWord.lastIdx = -1;
 
     Account_SetState(&g_app.account);
     Plan_SetState(&g_app.plan);
@@ -69,19 +83,24 @@ void AppState_Reset(void)
     g_app.test.selectedAnswer = -1;
     g_app.test.answerResult = -1;
     memset(g_app.test.wrongOptionsUsed, 0, sizeof(g_app.test.wrongOptionsUsed));
+    memset(g_app.test.wrongIdx, 0, sizeof(g_app.test.wrongIdx));
+    g_app.test.wrongCnt = 0;
+    g_app.test.lastIdx = -1;
+
+    g_app.selectWord.currentSelectIdx = 0;
+    g_app.selectWord.selectCorrect = 0;
+    g_app.selectWord.selectTotal = 0;
+    g_app.selectWord.selectedAnswer = -1;
+    g_app.selectWord.answerResult = -1;
+    memset(g_app.selectWord.wrongOptionsUsed, 0, sizeof(g_app.selectWord.wrongOptionsUsed));
+    memset(g_app.selectWord.wrongIdx, 0, sizeof(g_app.selectWord.wrongIdx));
+    g_app.selectWord.wrongCnt = 0;
+    g_app.selectWord.lastIdx = -1;
 }
 
 void AppState_Deinit(void)
 {
-    if(g_app.rootMenu == NULL) {
-        return ;
-    }
-    for (int i = 0; i < g_app.rootMenu->childindex; i++) {
-        if(g_app.rootMenu->child[i]) {
-            free(g_app.rootMenu->child[i]);
-        }
-    }
-    free(g_app.rootMenu);
+    FreeMenuRecursive(g_app.rootMenu);
     g_app.rootMenu = NULL;
     g_app.currentMenu = NULL;
 }

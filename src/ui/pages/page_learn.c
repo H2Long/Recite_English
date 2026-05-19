@@ -3,7 +3,7 @@
 #include "pages.h"
 
 void MenuLearn_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_HORIZONTAL, 25, 0);
 
     // ---- 左侧: 单词列表 ----
@@ -79,7 +79,7 @@ void MenuLearn_Show(void) {
 
     // 学习统计
     Rectangle sr = UILayoutNext(&dl, -1, 90);
-    DrawRectangleRounded(sr, 0.1f, 8, STYLE->theme.inputBg);
+    UIDrawCard(sr, 0.08f, STYLE);
     UILayout sl = UIBeginLayout(sr, UI_DIR_HORIZONTAL, 40, 20);
     Rectangle si = UILayoutNext(&sl, -1, -1);
     char stt[256];

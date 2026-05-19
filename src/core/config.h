@@ -14,7 +14,7 @@
 #define MASTERED_THRESHOLD  3     // 认识几次算掌握
 #define DAILY_GOAL_DEFAULT  20    // 默认每日目标
 #define MAX_WRONG_COUNT     5     // 错误几次后标记
-#define MAX_WORDS           100   // g_words 最大容量
+#define MAX_WORDS           300   // g_words 最大容量
 
 // 测试/选项
 #define TEST_MAX_QUESTIONS  10

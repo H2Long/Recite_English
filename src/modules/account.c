@@ -52,7 +52,9 @@ void Account_Init(void) {
         if(fi >= 4 && state->userCount < MAX_USERS) {
             User* u = &state->users[state->userCount];
             strncpy(u->username, f[0], MAX_USERNAME - 1);
+            u->username[MAX_USERNAME - 1] = '\0';
             strncpy(u->passwordHash, f[1], MAX_PASSWORD - 1);
+            u->passwordHash[MAX_PASSWORD - 1] = '\0';
             u->createdTime = (time_t)atol(f[2]);
             u->lastLoginTime = (time_t)atol(f[3]);
             u->selectWordCorrect = fi >= 5 ? atoi(f[4]) : 0;
@@ -115,6 +117,42 @@ void Account_Logout(void) {
     AccountState* state = getState();
     state->currentUserIndex = -1;
     state->isLoggedIn = false;
+}
+
+bool Account_Delete(int index, const char* password) {
+    if(password == NULL || index < 0) { return false; }
+    AccountState* state = getState();
+    if(index >= state->userCount) { return false; }
+    // verify password
+    unsigned long h = hash_string(password);
+    char hash[MAX_PASSWORD];
+    snprintf(hash, MAX_PASSWORD, "%lu", h);
+    if(strcmp(state->users[index].passwordHash, hash) != 0) { return false; }
+    // delete related files
+    char path[256];
+    snprintf(path, sizeof(path), "./progress_%s.txt", state->users[index].username);
+    remove(path);
+    snprintf(path, sizeof(path), "./plans_%s.txt", state->users[index].username);
+    remove(path);
+    // also try in data/ subdirectory
+    snprintf(path, sizeof(path), "./data/progress_%s.txt", state->users[index].username);
+    remove(path);
+    snprintf(path, sizeof(path), "./data/plans_%s.txt", state->users[index].username);
+    remove(path);
+    // if deleting current user, logout
+    if(state->currentUserIndex == index) {
+        state->currentUserIndex = -1;
+        state->isLoggedIn = false;
+    } else if(state->currentUserIndex > index) {
+        state->currentUserIndex--;
+    }
+    // remove from array
+    for(int i = index; i < state->userCount - 1; i++) {
+        state->users[i] = state->users[i+1];
+    }
+    state->userCount--;
+    Account_Save();
+    return true;
 }
 
 bool Account_IsLoggedIn(void) { return getState()->isLoggedIn; }

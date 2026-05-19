@@ -49,6 +49,7 @@ void MenuSettings_Show(void);
 void MenuAccount_Show(void);
 void MenuLogin_Show(void);
 void MenuRegister_Show(void);
+void MenuDeleteAccount_Show(void);
 void MenuWordManager_Show(void);
 
 #endif

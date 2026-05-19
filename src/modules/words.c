@@ -18,9 +18,12 @@ int g_wordProgressCount = 0;
 int g_wordCount = 0;
 static char g_progressFilePath[256] = "./data/progress.txt";
 
-void setProgressFilePath(const char* path) { strcpy(g_progressFilePath, path); }
+void set_progress_file_path(const char* path) {
+    strncpy(g_progressFilePath, path, sizeof(g_progressFilePath) - 1);
+    g_progressFilePath[sizeof(g_progressFilePath) - 1] = '\0';
+}
 
-void shuffleArray(int *array, int count) {
+void shuffle_array(int *array, int count) {
     for (int i = count - 1; i > 0; i--) {
         int j = rand() % (i + 1);
         int tmp = array[i];
@@ -29,8 +32,14 @@ void shuffleArray(int *array, int count) {
     }
 }
 
-void loadWordsFromFile(const char* filename) {
+void load_words_from_file(const char* filename) {
     FILE* fp = fopen(filename, "r");
+    if(fp == NULL) {
+        fp = fopen("./data/words.txt", "r");
+    }
+    if(fp == NULL) {
+        fp = fopen("../data/words.txt", "r");
+    }
     if(fp == NULL) {
         const char* def[][5] = {
             {"abandon", "[ə'bændən]", "v. 放弃；抛弃", "Never abandon your dreams.", u8"永远不要放弃你的梦想。"},
@@ -78,15 +87,17 @@ void loadWordsFromFile(const char* filename) {
             g_wordLibrary[g_wordCount].word = f[0];
             g_wordLibrary[g_wordCount].phonetic = f[1];
             g_wordLibrary[g_wordCount].definition = f[2];
-            g_wordLibrary[g_wordCount].example = fi >= 4 ? f[3] : "";
-            g_wordLibrary[g_wordCount].exampleTranslation = fi >= 5 ? f[4] : "";
+            g_wordLibrary[g_wordCount].example = fi >= 4 ? f[3] : strdup("");
+            g_wordLibrary[g_wordCount].exampleTranslation = fi >= 5 ? f[4] : strdup("");
             g_wordCount++;
+        } else {
+            for (int k = 0; k < fi; k++) { free(f[k]); }
         }
     }
     fclose(fp);
 }
 
-void freeWordLibrary(void) {
+void free_word_library(void) {
     if(g_wordLibrary == NULL) { return ; }
     for (int i = 0; i < g_wordCount; i++) {
         free((void*)g_wordLibrary[i].word);
@@ -100,7 +111,7 @@ void freeWordLibrary(void) {
     g_wordCount = 0;
 }
 
-void initWords(void) {
+void init_words(void) {
     for (int i = 0; i < g_wordCount && i < MAX_WORDS; i++) {
         g_words[i].entry = g_wordLibrary[i];
         g_words[i].progress.wordIndex = i;
@@ -110,10 +121,10 @@ void initWords(void) {
         g_words[i].progress.mastered = false;
         g_wordProgressCount++;
     }
-    loadProgress();
+    load_progress();
 }
 
-void saveProgress(void) {
+void save_progress(void) {
     FILE* fp = fopen(g_progressFilePath, "w");
     if(fp == NULL) { return ; }
     for (int i = 0; i < g_wordProgressCount; i++) {
@@ -124,7 +135,7 @@ void saveProgress(void) {
     fclose(fp);
 }
 
-void loadProgress(void) {
+void load_progress(void) {
     FILE* fp = fopen(g_progressFilePath, "r");
     if(fp == NULL) { return ; }
     char line[512];
@@ -153,14 +164,14 @@ void loadProgress(void) {
     fclose(fp);
 }
 
-void clearProgress(void) {
+void clear_progress(void) {
     for (int i = 0; i < g_wordProgressCount; i++) {
         g_words[i].progress.knownCount = 0;
         g_words[i].progress.unknownCount = 0;
         g_words[i].progress.lastReview = 0;
         g_words[i].progress.mastered = false;
     }
-    saveProgress();
+    save_progress();
 }
 
 // 通配符匹配 (支持 ^ $ * ?)
@@ -208,7 +219,7 @@ static bool matchPattern(const char* word, const char* pattern) {
     return true;
 }
 
-int searchWordsByRegex(const char* pattern, int* results, int max) {
+int search_words_by_regex(const char* pattern, int* results, int max) {
     if(pattern == NULL || strlen(pattern) == 0) { return 0; }
     int cnt = 0;
     for (int i = 0; i < g_wordProgressCount && cnt < max; i++) {
@@ -217,7 +228,7 @@ int searchWordsByRegex(const char* pattern, int* results, int max) {
     return cnt;
 }
 
-int searchWordsSimple(const char* query, int* results, int max) {
+int search_words_simple(const char* query, int* results, int max) {
     if(query == NULL || strlen(query) == 0) { return 0; }
     char ql[256];
     strcpy(ql, query);
@@ -232,7 +243,7 @@ int searchWordsSimple(const char* query, int* results, int max) {
     return cnt;
 }
 
-bool saveWordsToFile(const char* filename) {
+bool save_words_to_file(const char* filename) {
     FILE* fp = fopen(filename, "w");
     if(fp == NULL) { return false; }
     for (int i = 0; i < g_wordCount; i++) {
@@ -247,7 +258,7 @@ bool saveWordsToFile(const char* filename) {
     return true;
 }
 
-bool addWordToLibrary(const char* w, const char* ph, const char* def,
+bool add_word_to_library(const char* w, const char* ph, const char* def,
                       const char* ex, const char* ext) {
     if(w == NULL || strlen(w) == 0) { return false; }
     if(g_wordCount >= g_wordLibraryCapacity) {
@@ -260,11 +271,11 @@ bool addWordToLibrary(const char* w, const char* ph, const char* def,
     g_wordLibrary[g_wordCount].example = strdup(ex ? ex : "");
     g_wordLibrary[g_wordCount].exampleTranslation = strdup(ext ? ext : "");
     g_wordCount++;
-    saveWordsToFile(WORDS_FILE_PATH);
+    save_words_to_file(WORDS_FILE_PATH);
     return true;
 }
 
-bool editWordInLibrary(int idx, const char* w, const char* ph,
+bool edit_word_in_library(int idx, const char* w, const char* ph,
                        const char* def, const char* ex, const char* ext) {
     if(idx < 0 || idx >= g_wordCount) { return false; }
     if(w == NULL || strlen(w) == 0) { return false; }
@@ -278,11 +289,11 @@ bool editWordInLibrary(int idx, const char* w, const char* ph,
     g_wordLibrary[idx].definition = strdup(def ? def : "");
     g_wordLibrary[idx].example = strdup(ex ? ex : "");
     g_wordLibrary[idx].exampleTranslation = strdup(ext ? ext : "");
-    saveWordsToFile(WORDS_FILE_PATH);
+    save_words_to_file(WORDS_FILE_PATH);
     return true;
 }
 
-bool deleteWordFromLibrary(int idx) {
+bool delete_word_from_library(int idx) {
     if(idx < 0 || idx >= g_wordCount) { return false; }
     free((void*)g_wordLibrary[idx].word);
     free((void*)g_wordLibrary[idx].phonetic);
@@ -291,21 +302,41 @@ bool deleteWordFromLibrary(int idx) {
     free((void*)g_wordLibrary[idx].exampleTranslation);
     for (int i = idx; i < g_wordCount - 1; i++) { g_wordLibrary[i] = g_wordLibrary[i+1]; }
     g_wordCount--;
-    saveWordsToFile(WORDS_FILE_PATH);
+    save_words_to_file(WORDS_FILE_PATH);
     return true;
 }
 
-void reloadWords(void) {
-    int old = g_wordProgressCount;
+void reload_words(void) {
+    // 保存旧进度（按单词名索引）
+    typedef struct { char word[128]; int known; int unknown; time_t last; bool mastered; } SavedProg;
+    SavedProg saved[MAX_WORDS];
+    int savedCount = g_wordProgressCount;
+    for (int i = 0; i < savedCount; i++) {
+        strncpy(saved[i].word, g_words[i].entry.word, 127);
+        saved[i].word[127] = '\0';
+        saved[i].known = g_words[i].progress.knownCount;
+        saved[i].unknown = g_words[i].progress.unknownCount;
+        saved[i].last = g_words[i].progress.lastReview;
+        saved[i].mastered = g_words[i].progress.mastered;
+    }
+
     g_wordProgressCount = 0;
     for (int i = 0; i < g_wordCount && i < MAX_WORDS; i++) {
         g_words[i].entry = g_wordLibrary[i];
         g_words[i].progress.wordIndex = i;
-        if(i >= old) {
-            g_words[i].progress.knownCount = 0;
-            g_words[i].progress.unknownCount = 0;
-            g_words[i].progress.lastReview = 0;
-            g_words[i].progress.mastered = false;
+        // 按单词名匹配旧进度
+        g_words[i].progress.knownCount = 0;
+        g_words[i].progress.unknownCount = 0;
+        g_words[i].progress.lastReview = 0;
+        g_words[i].progress.mastered = false;
+        for (int j = 0; j < savedCount; j++) {
+            if(strcmp(saved[j].word, g_wordLibrary[i].word) == 0) {
+                g_words[i].progress.knownCount = saved[j].known;
+                g_words[i].progress.unknownCount = saved[j].unknown;
+                g_words[i].progress.lastReview = saved[j].last;
+                g_words[i].progress.mastered = saved[j].mastered;
+                break;
+            }
         }
         g_wordProgressCount++;
     }

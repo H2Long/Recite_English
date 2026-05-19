@@ -3,7 +3,7 @@
 #include "pages.h"
 
 void MenuSettings_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_VERTICAL, 30, 50);
 
     Rectangle tr = UILayoutNext(&lay, -1, 60);

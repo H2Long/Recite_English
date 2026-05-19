@@ -7,7 +7,7 @@ void MenuSelectWord_Show(void) {
     if(SELECT_WORD.selectCount == 0) {
         SELECT_WORD.selectCount = g_wordProgressCount < 15 ? g_wordProgressCount : 15;
         for (int j = 0; j < g_wordProgressCount; j++) SELECT_WORD.selectIndices[j] = j;
-        shuffleArray(SELECT_WORD.selectIndices, g_wordProgressCount);
+        shuffle_array(SELECT_WORD.selectIndices, g_wordProgressCount);
         SELECT_WORD.currentSelectIdx = 0;
         SELECT_WORD.selectCorrect = 0;
         SELECT_WORD.selectTotal = 0;
@@ -45,7 +45,18 @@ void MenuSelectWord_Show(void) {
                         : score >= 70 ? u8"不错！再接再厉！"
                         : score >= 50 ? u8"需要多复习哦！" : u8"建议先去学单词模式";
         Vector2 cs = MeasureTextAuto(cmt, 28, 1);
-        DrawTextAuto(cmt, (Vector2){SCREEN_WIDTH/2 - cs.x/2, rr.y + 210}, 28, 1, STYLE->theme.textSecondary);
+        DrawTextAuto(cmt, (Vector2){SCREEN_WIDTH/2 - cs.x/2, rr.y + 180}, 28, 1, STYLE->theme.textSecondary);
+
+        int remaining = Plan_GetRemainingToday();
+        char rt[64];
+        if(remaining > 0) {
+            snprintf(rt, sizeof(rt), u8"今日剩余: %d 词", remaining);
+        } else {
+            snprintf(rt, sizeof(rt), u8"今日目标已完成！");
+        }
+        Vector2 rs = MeasureTextAuto(rt, 20, 1);
+        DrawTextAuto(rt, (Vector2){SCREEN_WIDTH/2 - rs.x/2, rr.y + 220}, 20, 1,
+            remaining > 0 ? STYLE->theme.textSecondary : STYLE->theme.success);
 
         Rectangle rb = {SCREEN_WIDTH/2 - 90, rr.y + 280, 180, 60};
         if(UIButton(u8"再来一次", rb, STYLE, UI_STATE, 8)) {
@@ -56,6 +67,9 @@ void MenuSelectWord_Show(void) {
             SELECT_WORD.selectedAnswer = -1;
             SELECT_WORD.answerResult = -1;
             memset(SELECT_WORD.wrongOptionsUsed, 0, sizeof(SELECT_WORD.wrongOptionsUsed));
+            memset(SELECT_WORD.wrongIdx, 0, sizeof(SELECT_WORD.wrongIdx));
+            SELECT_WORD.wrongCnt = 0;
+            SELECT_WORD.lastIdx = -1;
         }
         return ;
     }
@@ -74,26 +88,27 @@ void MenuSelectWord_Show(void) {
 
     // 生成选项
     const char* opts[4] = {0};
-    static int wrongIdx[3] = {0}, wrongCnt = 0, lastIdx = -1;
-    if(lastIdx != SELECT_WORD.currentSelectIdx) {
+    if(SELECT_WORD.lastIdx != SELECT_WORD.currentSelectIdx) {
         SELECT_WORD.currentCorrectIdx = rand() % 4;
-        wrongCnt = 0;
-        for (int i = 0; i < g_wordProgressCount && wrongCnt < 3; i++) {
+        SELECT_WORD.wrongCnt = 0;
+        for (int i = 0; i < g_wordProgressCount && SELECT_WORD.wrongCnt < 3; i++) {
             if(i != wi && !SELECT_WORD.wrongOptionsUsed[i]) {
-                wrongIdx[wrongCnt++] = i;
+                SELECT_WORD.wrongIdx[SELECT_WORD.wrongCnt++] = i;
                 SELECT_WORD.wrongOptionsUsed[i] = true;
             }
         }
-        while (wrongCnt < 3) {
-            int r = rand() % g_wordProgressCount;
-            if(r != wi) { wrongIdx[wrongCnt++] = r; }
+        if(g_wordProgressCount > 1) {
+            while (SELECT_WORD.wrongCnt < 3) {
+                int r = rand() % g_wordProgressCount;
+                if(r != wi) { SELECT_WORD.wrongIdx[SELECT_WORD.wrongCnt++] = r; }
+            }
         }
-        lastIdx = SELECT_WORD.currentSelectIdx;
+        SELECT_WORD.lastIdx = SELECT_WORD.currentSelectIdx;
     }
     opts[SELECT_WORD.currentCorrectIdx] = cw->word;
     for (int i = 0, oi = 0; i < 4; i++) {
-        if(i != SELECT_WORD.currentCorrectIdx && oi < wrongCnt) {
-            opts[i] = g_words[wrongIdx[oi++]].entry.word;
+        if(i != SELECT_WORD.currentCorrectIdx && oi < SELECT_WORD.wrongCnt) {
+            opts[i] = g_words[SELECT_WORD.wrongIdx[oi++]].entry.word;
         }
     }
 
@@ -127,18 +142,26 @@ void MenuSelectWord_Show(void) {
                 SELECT_WORD.answerResult = 1;
             }
             else SELECT_WORD.answerResult = 0;
+            Plan_AddStudiedToday(1);
         }
     }
 
-    // 进度 + 下一题
-    Rectangle pr = {SCREEN_WIDTH/2 - 150, 660, 300, 40};
+    // 进度条 + 下一题
+    Rectangle pr = {SCREEN_WIDTH/2 - 200, 660, 400, 55};
+    DrawRectangleRounded(pr, 0.1f, 8, STYLE->theme.panelBg);
+    float pprog = SELECT_WORD.selectCount > 0
+        ? (float)SELECT_WORD.selectTotal / SELECT_WORD.selectCount : 0;
+    if(pprog > 1) pprog = 1;
+    DrawRectangleRounded((Rectangle){pr.x + 10, pr.y + 8, (pr.width - 20) * pprog, 10},
+        0.5f, 4, STYLE->theme.primary);
     int rate = SELECT_WORD.selectTotal > 0
         ? (int)((float)SELECT_WORD.selectCorrect / SELECT_WORD.selectTotal * 100) : 0;
-    char pt[64];
-    snprintf(pt, sizeof(pt), u8"进度: %d / %d  正确率: %d%%",
-        SELECT_WORD.currentSelectIdx + 1, SELECT_WORD.selectCount, rate);
-    Vector2 psz = MeasureTextAuto(pt, 22, 1);
-    DrawTextAuto(pt, (Vector2){SCREEN_WIDTH/2 - psz.x/2, pr.y + 8}, 22, 1, STYLE->theme.textSecondary);
+    char pt[128];
+    int remaining = Plan_GetRemainingToday();
+    snprintf(pt, sizeof(pt), u8"%d/%d 题  正确率 %d%%  今日剩余 %d 词",
+        SELECT_WORD.selectTotal, SELECT_WORD.selectCount, rate, remaining);
+    Vector2 psz = MeasureTextAuto(pt, 18, 1);
+    DrawTextAuto(pt, (Vector2){SCREEN_WIDTH/2 - psz.x/2, pr.y + 28}, 18, 1, STYLE->theme.textSecondary);
 
     if(SELECT_WORD.answerResult != -1) {
         Rectangle nb = {SCREEN_WIDTH/2 - 75, 710, 150, 55};

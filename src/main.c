@@ -23,39 +23,48 @@
 #define TEST         (*AppState_GetTestState())
 #define SELECT_WORD  (*AppState_GetSelectWordState())
 
-int main(void)
-{
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
-    SetTargetFPS(60);
-
-    // 初始化阶段
-    loadWordsFromFile(WORDS_FILE_PATH);           // 1. 加载单词
-    Account_Init();                               // 2. 账号系统
-    Plan_Init();                                  // 3. 学习计划
-    initWords();                                  // 4. 单词进度
-    srand((unsigned int)(time(NULL) ^ (uintptr_t)&srand));  // 5. 随机种子
-    loadFonts();                                  // 6. 字体
-    UISetFonts(g_mergedFont, g_englishFont);       // 7. UI字体
-    UISetLatinFont(g_latinFont);                  // 8. IPA字体
-
-    AppState_Init();
-    g_app.loginRequired = true;
-    InitMenuTree();
-
-    // 准备闪卡复习
+void RefreshReviewList(void) {
     REVIEW.reviewCount = 0;
     for (int j = 0; j < g_wordProgressCount; j++) {
         if(g_words[j].progress.lastReview == 0) {
             REVIEW.reviewIndices[REVIEW.reviewCount++] = j;
         }
     }
-    shuffleArray(REVIEW.reviewIndices, REVIEW.reviewCount);
+    int remaining = Plan_GetRemainingToday();
+    if(remaining > 0 && REVIEW.reviewCount > remaining) {
+        REVIEW.reviewCount = remaining;
+    }
+    shuffle_array(REVIEW.reviewIndices, REVIEW.reviewCount);
     REVIEW.currentReviewIdx = 0;
+    REVIEW.knownInSession = 0;
+    REVIEW.unknownInSession = 0;
+}
+
+int main(void)
+{
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
+    SetTargetFPS(60);
+
+    // 初始化阶段
+    AppState_Init();                               // 1. 状态管理（必须在账号/计划之前）
+    load_words_from_file(WORDS_FILE_PATH);           // 2. 加载单词
+    Account_Init();                               // 3. 账号系统
+    Plan_Init();                                  // 4. 学习计划
+    init_words();                                  // 5. 单词进度
+    srand((unsigned int)(time(NULL) ^ (uintptr_t)&srand));  // 6. 随机种子
+    load_fonts();                                  // 7. 字体
+    UISetFonts(g_mergedFont, g_englishFont);       // 8. UI字体
+    UISetLatinFont(g_latinFont);                  // 9. IPA字体
+    g_app.loginRequired = true;
+    InitMenuTree();
+
+    // 准备闪卡复习
+    RefreshReviewList();
 
     // 准备测试
     TEST.testCount = g_wordProgressCount < 10 ? g_wordProgressCount : 10;
     for (int j = 0; j < g_wordProgressCount; j++) TEST.testIndices[j] = j;
-    shuffleArray(TEST.testIndices, g_wordProgressCount);
+    shuffle_array(TEST.testIndices, g_wordProgressCount);
     TEST.currentTestIdx = 0;
     TEST.testCorrect = 0;
     TEST.testTotal = 0;
@@ -110,7 +119,7 @@ int main(void)
         }
 
         // 左侧导航
-        Rectangle menuRect = {10, 70, 230, SCREEN_HEIGHT - 80};
+        Rectangle menuRect = {10, 70, 260, SCREEN_HEIGHT - 80};
         DrawTreeMenu(menuRect);
 
         // 当前页面
@@ -124,8 +133,8 @@ int main(void)
             if(!isAcc) {
                 DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.6f));
                 Rectangle panel = {SCREEN_WIDTH/2 - 280, SCREEN_HEIGHT/2 - 160, 560, 320};
-                DrawRectangleRounded(panel, 0.1f, 12, STYLE->theme.panelBg);
-                DrawRectangleRoundedLines(panel, 0.1f, 12, STYLE->theme.primary);
+                UIDrawCard(panel, 0.08f, STYLE);
+                DrawRectangleRoundedLines(panel, 0.08f, 12, STYLE->theme.primary);
 
                 DrawTextAuto(u8"请先登录", (Vector2){SCREEN_WIDTH/2 - 80, panel.y + 30},
                     36, 1, STYLE->theme.primary);
@@ -134,19 +143,14 @@ int main(void)
                 DrawTextAuto(u8"学习进度将按账号独立保存",
                     (Vector2){SCREEN_WIDTH/2 - 130, panel.y + 110}, 22, 1, STYLE->theme.textSecondary);
 
+                bool gotoAccount = false;
                 Rectangle loginBtn = {SCREEN_WIDTH/2 - 120, panel.y + 170, 240, 55};
-                if(UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 800)) {
-                    if(g_accountMenuNode != NULL) {
-                        StackPush(AppState_GetMenuStack(), CURRENT_MENU);
-                        CURRENT_MENU = g_accountMenuNode;
-                    }
-                }
+                if(UIButton(u8"登录", loginBtn, STYLE, UI_STATE, 800)) { gotoAccount = true; }
                 Rectangle regBtn = {SCREEN_WIDTH/2 - 120, panel.y + 240, 240, 55};
-                if(UIButton(u8"注册账号", regBtn, STYLE, UI_STATE, 801)) {
-                    if(g_accountMenuNode != NULL) {
-                        StackPush(AppState_GetMenuStack(), CURRENT_MENU);
-                        CURRENT_MENU = g_accountMenuNode;
-                    }
+                if(UIButton(u8"注册账号", regBtn, STYLE, UI_STATE, 801)) { gotoAccount = true; }
+                if(gotoAccount && g_accountMenuNode != NULL) {
+                    StackPush(AppState_GetMenuStack(), CURRENT_MENU);
+                    CURRENT_MENU = g_accountMenuNode;
                 }
             }
         }
@@ -157,8 +161,8 @@ int main(void)
 
     // 清理
     AppState_Deinit();
-    unloadFonts();
-    freeWordLibrary();
+    unload_fonts();
+    free_word_library();
     CloseWindow();
     return 0;
 }

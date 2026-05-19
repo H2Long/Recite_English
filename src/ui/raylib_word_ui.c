@@ -96,7 +96,7 @@ static void utf8_delete_left(char* buf, int* cursor) {
         prev += len;
     }
     memmove(buf + prev, buf + off, strlen(buf + off) + 1);
-    *cursor = utf8_strlen(buf) - utf8_strlen(buf + prev);
+    *cursor = *cursor - 1;
 }
 
 static void utf8_delete_right(char* buf, int* cursor) {
@@ -109,23 +109,23 @@ static void utf8_delete_right(char* buf, int* cursor) {
 // 主题
 UITheme UIThemeLight(void) {
     return (UITheme){
-        .primary = {70,130,180,255}, .primaryHover = {100,149,237,255},
-        .primaryPressed = {65,105,225,255}, .secondary = {211,211,211,255},
-        .background = {245,245,245,255}, .panelBg = {255,255,255,255},
-        .textPrimary = {30,30,30,255}, .textSecondary = {120,120,120,255},
-        .inputBg = {255,255,255,255}, .inputBorder = {200,200,200,255},
-        .error = {220,20,60,255}, .success = {50,205,50,255}
+        .primary = {56,112,186,255}, .primaryHover = {76,128,196,255},
+        .primaryPressed = {44,96,168,255}, .secondary = {225,228,232,255},
+        .background = {246,248,250,255}, .panelBg = {255,255,255,255},
+        .textPrimary = {30,34,40,255}, .textSecondary = {108,118,132,255},
+        .inputBg = {255,255,255,255}, .inputBorder = {218,222,228,255},
+        .error = {200,60,68,255}, .success = {46,158,72,255}
     };
 }
 
 UITheme UIThemeDark(void) {
     return (UITheme){
-        .primary = {70,130,180,255}, .primaryHover = {100,149,237,255},
-        .primaryPressed = {65,105,225,255}, .secondary = {80,80,80,255},
-        .background = {30,30,30,255}, .panelBg = {45,45,45,255},
-        .textPrimary = {240,240,240,255}, .textSecondary = {180,180,180,255},
-        .inputBg = {60,60,60,255}, .inputBorder = {100,100,100,255},
-        .error = {255,80,80,255}, .success = {80,200,80,255}
+        .primary = {86,140,210,255}, .primaryHover = {100,155,220,255},
+        .primaryPressed = {72,124,195,255}, .secondary = {55,60,68,255},
+        .background = {22,24,28,255}, .panelBg = {35,38,44,255},
+        .textPrimary = {220,222,226,255}, .textSecondary = {145,152,164,255},
+        .inputBg = {45,48,54,255}, .inputBorder = {70,75,84,255},
+        .error = {220,90,90,255}, .success = {72,195,95,255}
     };
 }
 
@@ -133,6 +133,24 @@ void UIStyleInit(UIStyle* style) {
     *style = (UIStyle){.theme = UIThemeLight(), .font = GetFontDefault(),
         .fontSizeSmall = 16, .fontSizeNormal = 20, .fontSizeLarge = 28,
         .spacing = 8, .cornerRadius = 6};
+}
+
+// 卡片阴影
+void UIDrawCardShadow(Rectangle rect, float roundness) {
+    Rectangle shadow = {rect.x + 2, rect.y + 3, rect.width, rect.height};
+    DrawRectangleRounded(shadow, roundness, 8, Fade(BLACK, 0.06f));
+}
+
+// 带阴影的卡片（自动跳过屏幕外的绘制）
+void UIDrawCard(Rectangle rect, float roundness, UIStyle* style) {
+    // 完全在屏幕外则跳过
+    int sh = GetScreenHeight();
+    if(rect.y + rect.height < 0 || rect.y > sh) { return; }
+    // 顶部被裁剪时只画卡片不画阴影（避免阴影溢出到上方）
+    if(rect.y >= 0) {
+        UIDrawCardShadow(rect, roundness);
+    }
+    DrawRectangleRounded(rect, roundness, 8, style->theme.panelBg);
 }
 
 void UIBegin(UIState* state) {
@@ -205,6 +223,46 @@ bool UIButtonEx(const char* label, Rectangle rect, UIStyle* style, UIState* stat
 
 bool UIButton(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id) {
     return UIButtonEx(label, rect, style, state, true, id);
+}
+
+// 次按钮（描边样式）
+bool UIButtonSecondary(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id) {
+    bool inside = CheckCollisionPointRec(state->mousePos, rect);
+    Color bg = BLANK;
+    Color tc = style->theme.primary;
+    Color bd = style->theme.primary;
+    if(inside) {
+        state->hotItem = id;
+        if(state->mousePressed) { state->activeItem = id; }
+    }
+    if(state->activeItem == id) { bg = Fade(style->theme.primary, 0.1f); }
+    else if(state->hotItem == id) { bg = Fade(style->theme.primary, 0.05f); }
+    float cr = style->cornerRadius / rect.height * 10;
+    DrawRectangleRounded(rect, cr, 8, bg);
+    DrawRectangleRoundedLines(rect, cr, 8, bd);
+    Vector2 size = MeasureTextEx(style->font, label, style->fontSizeNormal, 1);
+    UIDrawText(label, (Vector2){rect.x+(rect.width-size.x)/2, rect.y+(rect.height-size.y)/2},
+        style->fontSizeNormal, 1, tc);
+    return state->mouseReleased && state->hotItem == id && state->activeItem == id;
+}
+
+// 危险按钮（红色）
+bool UIButtonDanger(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id) {
+    bool inside = CheckCollisionPointRec(state->mousePos, rect);
+    Color bg = style->theme.error;
+    Color tc = WHITE;
+    if(inside) {
+        state->hotItem = id;
+        if(state->mousePressed) { state->activeItem = id; }
+    }
+    if(state->activeItem == id) { bg = (Color){180,40,55,255}; }
+    else if(state->hotItem == id) { bg = (Color){200,60,70,255}; }
+    float cr = style->cornerRadius / rect.height * 10;
+    DrawRectangleRounded(rect, cr, 8, bg);
+    Vector2 size = MeasureTextEx(style->font, label, style->fontSizeNormal, 1);
+    UIDrawText(label, (Vector2){rect.x+(rect.width-size.x)/2, rect.y+(rect.height-size.y)/2},
+        style->fontSizeNormal, 1, tc);
+    return state->mouseReleased && state->hotItem == id && state->activeItem == id;
 }
 
 bool UICheckbox(const char* label, Rectangle rect, bool* checked, UIStyle* style, UIState* state) {
@@ -375,9 +433,13 @@ void UIEndScrollView(UIScrollView* scroll, UIStyle* style, UIState* state) {
     if(scroll->scrollOffset.y > max_y) { scroll->scrollOffset.y = max_y; }
     if(scroll->showScrollbar) {
         float bar_h = scroll->viewport.height * (scroll->viewport.height / scroll->contentSize.y);
+        if(bar_h < 20) bar_h = 20;
         float bar_y = scroll->viewport.y + (scroll->scrollOffset.y / scroll->contentSize.y) * scroll->viewport.height;
-        DrawRectangleRec((Rectangle){scroll->viewport.x+scroll->viewport.width-8, bar_y, 6, bar_h},
-            Fade(style->theme.textSecondary, 0.5f));
+        Rectangle barRect = {scroll->viewport.x + scroll->viewport.width - 10, bar_y, 8, bar_h};
+        bool barHover = CheckCollisionPointRec(state->mousePos,
+            (Rectangle){scroll->viewport.x + scroll->viewport.width - 14, scroll->viewport.y, 14, scroll->viewport.height});
+        Color barColor = barHover ? Fade(style->theme.primary, 0.5f) : Fade(style->theme.textSecondary, 0.3f);
+        DrawRectangleRounded(barRect, 0.5f, 4, barColor);
     }
 }
 
@@ -410,8 +472,9 @@ bool UIListItem(const char* text, Rectangle rect, UIStyle* style, UIState* state
 
 // 单词卡片
 void UIWordCard(WordEntry* entry, Rectangle rect, UIStyle* style) {
-    DrawRectangleRounded(rect, 0.1f, 8, style->theme.panelBg);
-    DrawRectangleRoundedLines(rect, 0.1f, 8, style->theme.inputBorder);
+    UIDrawCardShadow(rect, 0.08f);
+    DrawRectangleRounded(rect, 0.08f, 8, style->theme.panelBg);
+    DrawRectangleRoundedLines(rect, 0.08f, 8, style->theme.inputBorder);
     UILayout lay = UIBeginLayout(rect, UI_DIR_VERTICAL, 4, 12);
     Rectangle wr = UILayoutNext(&lay, -1, style->fontSizeLarge + 8);
     UIDrawText(entry->word, (Vector2){wr.x, wr.y}, style->fontSizeLarge, 1, style->theme.textPrimary);
@@ -442,8 +505,9 @@ int UIFlashCard(WordEntry* entry, Rectangle rect, CardFace* face,
     float scale = 1.0f - fabsf(*anim_time - 0.5f) * 0.2f;
     Rectangle dr = {rect.x+rect.width*(1-scale)/2, rect.y+rect.height*(1-scale)/2,
                     rect.width*scale, rect.height*scale};
-    DrawRectangleRounded(dr, 0.1f, 8, style->theme.panelBg);
-    DrawRectangleRoundedLines(dr, 0.1f, 8, style->theme.inputBorder);
+    UIDrawCardShadow(dr, 0.08f);
+    DrawRectangleRounded(dr, 0.08f, 8, style->theme.panelBg);
+    DrawRectangleRoundedLines(dr, 0.08f, 8, style->theme.inputBorder);
     if(*anim_time < 0.5f) {
         float fs = style->fontSizeLarge * 1.2f;
         Vector2 ws = MeasureTextEx(style->font, entry->word, fs, 1);
@@ -465,10 +529,10 @@ int UIFlashCard(WordEntry* entry, Rectangle rect, CardFace* face,
         action = 3;
     }
     if(*anim_time > 0.9f && *face == CARD_BACK) {
-        Rectangle br = {rect.x, rect.y+rect.height+40, 220, 40};
+        Rectangle br = {rect.x, rect.y+rect.height+18, 220, 45};
         if(UIButton(u8"认识", br, style, state, 100)) { action = 1; }
         br.x = rect.x + rect.width - 220;
-        if(UIButton(u8"不认识", br, style, state, 101)) { action = 2; }
+        if(UIButtonDanger(u8"不认识", br, style, state, 101)) { action = 2; }
     }
     return action;
 }

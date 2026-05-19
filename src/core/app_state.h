@@ -40,6 +40,9 @@ typedef struct {
     int answerResult;
     int currentCorrectIdx;
     bool wrongOptionsUsed[MAX_WORDS];
+    int wrongIdx[3];
+    int wrongCnt;
+    int lastIdx;
 } TestState;
 
 // 查找单词
@@ -48,6 +51,7 @@ typedef struct {
     int searchResults[MAX_WORDS];
     int searchResultCount;
     SearchBarState searchBar;
+    float scrollOffset;
 } SearchState;
 
 // 选词背单词
@@ -61,6 +65,9 @@ typedef struct {
     int answerResult;
     int currentCorrectIdx;
     bool wrongOptionsUsed[MAX_WORDS];
+    int wrongIdx[3];
+    int wrongCnt;
+    int lastIdx;
 } SelectWordState;
 
 // 总状态
@@ -87,6 +94,8 @@ extern AppState g_app;
 void AppState_Init(void);
 void AppState_Reset(void);
 void AppState_Deinit(void);
+
+void RefreshReviewList(void);
 
 UIStyle* AppState_GetStyle(void);
 UIState* AppState_GetUIState(void);

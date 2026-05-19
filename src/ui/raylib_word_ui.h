@@ -105,6 +105,10 @@ Rectangle UILayoutNext(UILayout* layout, float width, float height);
 // 基础控件
 bool UIButton(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id);
 bool UIButtonEx(const char* label, Rectangle rect, UIStyle* style, UIState* state, bool enabled, int id);
+bool UIButtonSecondary(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id);
+bool UIButtonDanger(const char* label, Rectangle rect, UIStyle* style, UIState* state, int id);
+void UIDrawCardShadow(Rectangle rect, float roundness);
+void UIDrawCard(Rectangle rect, float roundness, UIStyle* style);
 bool UICheckbox(const char* label, Rectangle rect, bool* checked, UIStyle* style, UIState* state);
 void UILabel(const char* text, Rectangle rect, UIStyle* style, Color color);
 

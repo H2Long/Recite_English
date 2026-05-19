@@ -7,10 +7,11 @@ static struct {
     char name[64]; int daily, days;
     UITextBoxState nameState, dailyState, daysState;
     bool isAdding; char msg[128]; bool ready;
+    int selectedIdx;              // 右侧详情区选中的计划
 } g_planForm = {0};
 
 void MenuPlanRoot_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_VERTICAL, 30, 50);
 
     Rectangle tr = UILayoutNext(&lay, -1, 60);
@@ -19,7 +20,7 @@ void MenuPlanRoot_Show(void) {
     LearningPlan* active = Plan_GetActive();
     if(active != NULL) {
         Rectangle ir = UILayoutNext(&lay, -1, 80);
-        DrawRectangleRounded(ir, 0.1f, 8, STYLE->theme.panelBg);
+        UIDrawCard(ir, 0.08f, STYLE);
         char info[256];
         snprintf(info, sizeof(info), u8"当前计划: %s  |  第 %d/%d 天  |  今日 %d/%d 词",
             active->name, active->currentDay + 1, active->totalDays,
@@ -49,7 +50,7 @@ void MenuPlanRoot_Show(void) {
     };
     for (int i = 0; i < 2; i++) {
         Rectangle card = UILayoutNext(&cl, 320, -1);
-        DrawRectangleRounded(card, 0.1f, 12, STYLE->theme.panelBg);
+        UIDrawCard(card, 0.08f, STYLE);
         DrawRectangleRoundedLines(card, 0.1f, 12, cards[i].c);
         Vector2 ts = MeasureTextAuto(cards[i].t, 32, 1);
         DrawTextAuto(cards[i].t, (Vector2){card.x + 20, card.y + 20}, 32, 1, cards[i].c);
@@ -67,122 +68,201 @@ void MenuPlanManager_Show(void) {
     if(!g_planForm.ready) {
         memset(&g_planForm, 0, sizeof(g_planForm));
         g_planForm.ready = true;
-        g_planForm.daily = 10;
-        g_planForm.days = 7;
-        strcpy(g_planForm.nameState.buffer, u8"我的计划");
+        g_planForm.selectedIdx = Plan_GetActiveIndex();
     }
 
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_HORIZONTAL, 20, 25);
 
-    // 左侧: 计划列表
-    Rectangle lr = UILayoutNext(&lay, 320, -1);
-    DrawRectangleRounded(lr, 0.1f, 8, STYLE->theme.panelBg);
-    DrawTextAuto(u8"我的计划", (Vector2){lr.x + 15, lr.y + 15}, 24, 1, STYLE->theme.textPrimary);
-    static float planListScroll = 0;
+    // ===== 左侧: 计划列表 =====
+    Rectangle lr = UILayoutNext(&lay, 300, -1);
+    UIDrawCard(lr, 0.08f, STYLE);
+    DrawTextAuto(u8"我的计划", (Vector2){lr.x + 15, lr.y + 12}, 22, 1, STYLE->theme.textPrimary);
 
-    Rectangle la = {lr.x, lr.y + 55, lr.width, lr.height - 55};
+    static float planListScroll = 0;
+    Rectangle la = {lr.x, lr.y + 45, lr.width, lr.height - 45};
     UIScrollView sv = {0};
     sv.viewport = la;
     sv.scrollOffset.y = planListScroll;
-    sv.contentSize = (Vector2){la.width - 20, PLAN_STATE.planCount * 60.0f + 10};
+    sv.contentSize = (Vector2){la.width, PLAN_STATE.planCount * 50.0f + 10};
     UIBeginScrollView(&sv, la, sv.contentSize);
 
     for (int i = 0; i < PLAN_STATE.planCount; i++) {
-        Rectangle item = {la.x + 10, la.y + 5 + i*60 - sv.scrollOffset.y, la.width - 20, 55};
+        Rectangle item = {la.x + 6, la.y + 4 + i*50 - sv.scrollOffset.y, la.width - 12, 46};
         bool act = (i == Plan_GetActiveIndex());
-        if(act) {
-            DrawRectangleRounded(item, 0.08f, 6, Fade(STYLE->theme.primary, 0.15f));
+        bool sel = (i == g_planForm.selectedIdx);
+
+        // 背景
+        if(sel) {
+            DrawRectangleRounded(item, 0.08f, 6, Fade(STYLE->theme.primary, 0.2f));
             DrawRectangleRoundedLines(item, 0.08f, 6, STYLE->theme.primary);
-            DrawRectangleRec((Rectangle){item.x, item.y, 4, item.height}, STYLE->theme.primary);
+        }
+        else if(act) {
+            DrawRectangleRounded(item, 0.08f, 6, Fade(STYLE->theme.success, 0.1f));
         }
         else if(CheckCollisionPointRec(UI_STATE->mousePos, item)) {
             DrawRectangleRec(item, Fade(STYLE->theme.primary, 0.06f));
         }
-        if(CheckCollisionPointRec(UI_STATE->mousePos, item) && UI_STATE->mouseReleased && !act) {
-            Plan_SetActive(i);
+
+        // 点击选中
+        if(CheckCollisionPointRec(UI_STATE->mousePos, item) && UI_STATE->mouseReleased) {
+            g_planForm.selectedIdx = i;
         }
 
-        float nx = item.x + 18;
-        DrawTextAuto(PLAN_STATE.plans[i].name, (Vector2){nx, item.y + 4}, 22, 1,
-            act ? STYLE->theme.primary : STYLE->theme.textPrimary);
-        if(act) { DrawTextAuto(u8"> 当前使用", (Vector2){item.x+item.width-100, item.y+4}, 16, 1, STYLE->theme.primary); }
+        // 计划名称
+        float nx = item.x + 12;
+        DrawTextAuto(PLAN_STATE.plans[i].name, (Vector2){nx, item.y + 4}, 20, 1,
+            sel ? STYLE->theme.primary : STYLE->theme.textPrimary);
 
-        LearningPlan* p = &PLAN_STATE.plans[i];
-        float dp = p->totalDays > 0 ? (float)(p->currentDay+1)/p->totalDays : 0;
-        if(dp > 1) { dp = 1; }
-        char sub[128];
-        snprintf(sub, sizeof(sub), u8"%d词/天 x %d天  进度 %d%%",
-            p->dailyWordCount, p->totalDays, (int)(dp*100));
-        DrawTextAuto(sub, (Vector2){nx, item.y + 29}, 14, 1, STYLE->theme.textSecondary);
-        Rectangle bar = {nx, item.y + 48, item.width - nx + item.x - la.x - 50, 4};
-        DrawRectangleRec(bar, Fade(STYLE->theme.textSecondary, 0.2f));
-        DrawRectangleRec((Rectangle){bar.x, bar.y, bar.width*dp, bar.height},
-            act ? STYLE->theme.primary : STYLE->theme.success);
+        // 简要信息
+        char sub[64];
+        snprintf(sub, sizeof(sub), u8"%d词/天  %d天",
+            PLAN_STATE.plans[i].dailyWordCount, PLAN_STATE.plans[i].totalDays);
+        DrawTextAuto(sub, (Vector2){nx, item.y + 26}, 14, 1, STYLE->theme.textSecondary);
 
-        // 删除按钮
-        Rectangle db = {item.x + item.width - 28, item.y + 4, 24, 22};
-        bool dh = CheckCollisionPointRec(UI_STATE->mousePos, db);
-        if(dh) { DrawRectangleRounded(db, 0.2f, 4, Fade(RED, 0.2f)); }
-        DrawTextAuto(u8"x", (Vector2){db.x+6, db.y+2}, 16, 1,
-            dh ? RED : STYLE->theme.textSecondary);
-        if(dh && UI_STATE->mouseReleased) { Plan_Delete(i); }
+        // 当前使用标记
+        if(act) {
+            DrawTextAuto(u8"●", (Vector2){item.x + item.width - 20, item.y + 16}, 14, 1, STYLE->theme.success);
+        }
     }
     UIEndScrollView(&sv, STYLE, UI_STATE);
     planListScroll = sv.scrollOffset.y;
 
-    // 右侧: 创建表单
-    Rectangle fr = UILayoutNext(&lay, -1, -1);
-    DrawRectangleRounded(fr, 0.1f, 8, STYLE->theme.panelBg);
-    UILayout fl = UIBeginLayout(fr, UI_DIR_VERTICAL, 15, 30);
-    Rectangle ft = UILayoutNext(&fl, -1, 40);
-    DrawTextAuto(u8"创建新计划", (Vector2){ft.x, ft.y}, 28, 1, STYLE->theme.primary);
+    // ===== 右侧 =====
+    Rectangle rr = UILayoutNext(&lay, -1, -1);
+    UILayout rl = UIBeginLayout(rr, UI_DIR_VERTICAL, 15, 0);
 
-    // 三个输入框
-    DrawTextAuto(u8"计划名称", (Vector2){UILayoutNext(&fl, -1, 28).x, UILayoutNext(&fl, -1, 28).y},
-        20, 1, STYLE->theme.textSecondary);
-    UITextBox(&g_planForm.nameState, UILayoutNext(&fl, -1, 42), STYLE, UI_STATE, false);
-    DrawTextAuto(u8"每日单词数", (Vector2){UILayoutNext(&fl, -1, 28).x, UILayoutNext(&fl, -1, 28).y},
-        20, 1, STYLE->theme.textSecondary);
-    UITextBox(&g_planForm.dailyState, UILayoutNext(&fl, -1, 42), STYLE, UI_STATE, false);
-    DrawTextAuto(u8"总天数", (Vector2){UILayoutNext(&fl, -1, 28).x, UILayoutNext(&fl, -1, 28).y},
-        20, 1, STYLE->theme.textSecondary);
-    UITextBox(&g_planForm.daysState, UILayoutNext(&fl, -1, 42), STYLE, UI_STATE, false);
+    // ---- 上半: 选中计划详情 ----
+    Rectangle detailR = UILayoutNext(&rl, -1, 300);
+    UIDrawCard(detailR, 0.08f, STYLE);
+    UILayout dl = UIBeginLayout(detailR, UI_DIR_VERTICAL, 12, 25);
 
+    if(g_planForm.selectedIdx >= 0 && g_planForm.selectedIdx < PLAN_STATE.planCount) {
+        LearningPlan* p = &PLAN_STATE.plans[g_planForm.selectedIdx];
+        bool isActive = (g_planForm.selectedIdx == Plan_GetActiveIndex());
+
+        // 标题
+        Rectangle dt = UILayoutNext(&dl, -1, 40);
+        DrawTextAuto(p->name, (Vector2){dt.x, dt.y}, 28, 1, STYLE->theme.primary);
+        if(isActive) {
+            DrawTextAuto(u8"  [当前使用]", (Vector2){dt.x + MeasureTextAuto(p->name, 28, 1).x + 10, dt.y + 6},
+                18, 1, STYLE->theme.success);
+        }
+
+        // 参数
+        Rectangle dp = UILayoutNext(&dl, -1, 30);
+        char param[128];
+        snprintf(param, sizeof(param), u8"每日目标: %d 词    总天数: %d 天    总词量: %d 词",
+            p->dailyWordCount, p->totalDays, p->dailyWordCount * p->totalDays);
+        DrawTextAuto(param, (Vector2){dp.x, dp.y}, 20, 1, STYLE->theme.textSecondary);
+
+        // 进度
+        Rectangle pg = UILayoutNext(&dl, -1, 30);
+        float prog = p->totalDays > 0 ? (float)(p->currentDay + 1) / p->totalDays : 0;
+        if(prog > 1) { prog = 1; }
+        char progText[128];
+        snprintf(progText, sizeof(progText), u8"进度: 第 %d/%d 天  (%d%%)    今日已学: %d/%d 词",
+            p->currentDay + 1, p->totalDays, (int)(prog * 100),
+            p->studiedToday, p->dailyWordCount);
+        DrawTextAuto(progText, (Vector2){pg.x, pg.y}, 20, 1, STYLE->theme.textPrimary);
+
+        // 进度条
+        Rectangle barBg = {pg.x, pg.y + 32, detailR.width - 50, 14};
+        DrawRectangleRounded(barBg, 0.5f, 4, STYLE->theme.inputBg);
+        DrawRectangleRounded((Rectangle){barBg.x, barBg.y, barBg.width * prog, barBg.height},
+            0.5f, 4, isActive ? STYLE->theme.primary : STYLE->theme.success);
+
+        // 创建时间
+        Rectangle ct = UILayoutNext(&dl, -1, 25);
+        char timeStr[64];
+        if(p->createdAt > 0) {
+            strftime(timeStr, sizeof(timeStr), u8"创建时间: %Y-%m-%d %H:%M", localtime(&p->createdAt));
+        } else {
+            strcpy(timeStr, u8"创建时间: 未知");
+        }
+        DrawTextAuto(timeStr, (Vector2){ct.x, ct.y}, 16, 1, STYLE->theme.textSecondary);
+
+        // 操作按钮
+        Rectangle btnRow = UILayoutNext(&dl, -1, 45);
+        UILayout bl = UIBeginLayout(btnRow, UI_DIR_HORIZONTAL, 15, 0);
+        if(!isActive) {
+            if(UIButton(u8"设为当前", UILayoutNext(&bl, 130, 40), STYLE, UI_STATE, 730)) {
+                Plan_SetActive(g_planForm.selectedIdx);
+                RefreshReviewList();
+            }
+        }
+        if(UIButtonDanger(u8"删除", UILayoutNext(&bl, 100, 40), STYLE, UI_STATE, 731)) {
+            Plan_Delete(g_planForm.selectedIdx);
+            if(g_planForm.selectedIdx >= PLAN_STATE.planCount) {
+                g_planForm.selectedIdx = PLAN_STATE.planCount > 0 ? PLAN_STATE.planCount - 1 : -1;
+            }
+        }
+    }
+    else {
+        Rectangle hint = UILayoutNext(&dl, -1, 60);
+        DrawTextAuto(u8"← 请从左侧选择一个计划查看详情",
+            (Vector2){hint.x + 20, hint.y + 15}, 22, 1, STYLE->theme.textSecondary);
+    }
+
+    // ---- 下半: 创建新计划 ----
+    Rectangle createR = UILayoutNext(&rl, -1, -1);
+    UIDrawCard(createR, 0.08f, STYLE);
+    UILayout cl = UIBeginLayout(createR, UI_DIR_VERTICAL, 12, 25);
+
+    Rectangle ct2 = UILayoutNext(&cl, -1, 35);
+    DrawTextAuto(u8"创建新计划", (Vector2){ct2.x, ct2.y}, 24, 1, STYLE->theme.textPrimary);
+
+    // 计划名称
+    Rectangle lblName = UILayoutNext(&cl, -1, 24);
+    DrawTextAuto(u8"计划名称", (Vector2){lblName.x, lblName.y}, 18, 1, STYLE->theme.textSecondary);
+    UITextBox(&g_planForm.nameState, UILayoutNext(&cl, -1, 38), STYLE, UI_STATE, false);
+
+    // 每日背单词数
+    Rectangle lblDaily = UILayoutNext(&cl, -1, 24);
+    DrawTextAuto(u8"每日背单词数", (Vector2){lblDaily.x, lblDaily.y}, 18, 1, STYLE->theme.textSecondary);
+    UITextBox(&g_planForm.dailyState, UILayoutNext(&cl, -1, 38), STYLE, UI_STATE, false);
+
+    // 计划天数
+    Rectangle lblDays = UILayoutNext(&cl, -1, 24);
+    DrawTextAuto(u8"计划天数", (Vector2){lblDays.x, lblDays.y}, 18, 1, STYLE->theme.textSecondary);
+    UITextBox(&g_planForm.daysState, UILayoutNext(&cl, -1, 38), STYLE, UI_STATE, false);
+
+    // 提示消息
     if(strlen(g_planForm.msg) > 0) {
-        Rectangle mr = UILayoutNext(&fl, -1, 30);
+        Rectangle mr = UILayoutNext(&cl, -1, 25);
         DrawTextAuto(g_planForm.msg, (Vector2){mr.x, mr.y}, 18, 1,
             strstr(g_planForm.msg, "失败") ? STYLE->theme.error : STYLE->theme.success);
     }
 
-    Rectangle btnR = UILayoutNext(&fl, -1, 50);
-    UILayout bl = UIBeginLayout(btnR, UI_DIR_HORIZONTAL, 20, 0);
-    if(UIButton(u8"创建计划", UILayoutNext(&bl, 150, 45), STYLE, UI_STATE, 710)) {
+    // 按钮行
+    Rectangle btnRow = UILayoutNext(&cl, -1, 42);
+    UILayout bl = UIBeginLayout(btnRow, UI_DIR_HORIZONTAL, 15, 0);
+    if(UIButton(u8"创建计划", UILayoutNext(&bl, 130, 38), STYLE, UI_STATE, 710)) {
         const char* nm = g_planForm.nameState.buffer;
         int d = atoi(g_planForm.dailyState.buffer);
         int dd = atoi(g_planForm.daysState.buffer);
         if(strlen(nm) == 0) { strcpy(g_planForm.msg, u8"请输入计划名称"); }
         else if(d <= 0 || dd <= 0) { strcpy(g_planForm.msg, u8"请输入有效的数字"); }
         else if(Plan_Create(nm, d, dd)) {
-            strcpy(g_planForm.msg, u8"计划创建成功！");
+            strcpy(g_planForm.msg, u8"创建成功！");
             memset(&g_planForm.nameState, 0, sizeof(UITextBoxState));
             memset(&g_planForm.dailyState, 0, sizeof(UITextBoxState));
             memset(&g_planForm.daysState, 0, sizeof(UITextBoxState));
         }
-        else strcpy(g_planForm.msg, u8"创建失败：计划名已存在或已满");
+        else strcpy(g_planForm.msg, u8"创建失败：名称已存在或已满");
     }
-    if(UIButton(u8"使用默认", UILayoutNext(&bl, 150, 45), STYLE, UI_STATE, 711)) {
+    if(UIButton(u8"使用默认", UILayoutNext(&bl, 130, 38), STYLE, UI_STATE, 711)) {
         Plan_AddDefaults();
         strcpy(g_planForm.msg, u8"已添加默认计划");
     }
 }
 
 void MenuProgress_Show(void) {
-    UILayout lay = UIBeginLayout((Rectangle){250, 80, SCREEN_WIDTH-270, SCREEN_HEIGHT-100},
+    UILayout lay = UIBeginLayout((Rectangle){280, 80, SCREEN_WIDTH-300, SCREEN_HEIGHT-100},
         UI_DIR_VERTICAL, 20, 25);
 
     Rectangle sc = UILayoutNext(&lay, -1, 130);
-    DrawRectangleRounded(sc, 0.1f, 12, STYLE->theme.panelBg);
+    UIDrawCard(sc, 0.08f, STYLE);
 
     int mastered = 0, learning = 0;
     for (int i = 0; i < g_wordProgressCount; i++) {
@@ -208,11 +288,11 @@ void MenuProgress_Show(void) {
     Rectangle rb = UILayoutNext(&lay, -1, 55);
     rb.x = SCREEN_WIDTH - 400;
     rb.width = 200;
-    if(UIButton(u8"清除进度", rb, STYLE, UI_STATE, 5)) { clearProgress(); }
+    if(UIButtonDanger(u8"清除进度", rb, STYLE, UI_STATE, 5)) { clear_progress(); }
 
     // 详细列表
     Rectangle lc = UILayoutNext(&lay, -1, -1);
-    DrawRectangleRounded(lc, 0.1f, 12, STYLE->theme.panelBg);
+    UIDrawCard(lc, 0.08f, STYLE);
     UILayout ll = UIBeginLayout(lc, UI_DIR_VERTICAL, 6, 18);
 
     Rectangle hr = UILayoutNext(&ll, -1, 45);

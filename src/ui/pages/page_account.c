@@ -17,6 +17,11 @@ static struct {
     bool ready;
 } g_regForm = {0};
 
+// 删除确认状态
+static int g_deleteTarget = -1;        // 正在删除的账号索引, -1=无
+static UITextBoxState g_deletePassState = {0};
+static char g_deleteMsg[128] = {0};
+
 void MenuAccount_Show(void) {
     if(g_accountSubPage == 1) {
         MenuLogin_Show();
@@ -27,7 +32,7 @@ void MenuAccount_Show(void) {
         return;
     }
 
-    Rectangle contentRect = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle contentRect = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 30, 50);
 
     // 标题
@@ -70,16 +75,18 @@ void MenuAccount_Show(void) {
 
         if(UIButton(u8"登出", UILayoutNext(&buttonLayout, 160, 50), STYLE, UI_STATE, 300)) {
             Account_Logout();
-            setProgressFilePath("./data/progress.txt");
-            loadProgress();
+            set_progress_file_path("./data/progress.txt");
+            load_progress();
             Plan_SetFilePath("./data/plans.txt");
+            RefreshReviewList();
             strcpy(LOGIN_MSG, u8"已登出");
         }
         if(UIButton(u8"切换账号", UILayoutNext(&buttonLayout, 200, 50), STYLE, UI_STATE, 301)) {
             Account_Logout();
-            setProgressFilePath("./data/progress.txt");
-            loadProgress();
+            set_progress_file_path("./data/progress.txt");
+            load_progress();
             Plan_SetFilePath("./data/plans.txt");
+            RefreshReviewList();
             g_accountSubPage = 1;
         }
     }
@@ -170,7 +177,7 @@ void MenuLogin_Show(void) {
         g_loginForm.userState.hasFocus = true;
     }
 
-    Rectangle contentRect = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle contentRect = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 30, 50);
 
     // 标题
@@ -180,7 +187,7 @@ void MenuLogin_Show(void) {
         42, 1, STYLE->theme.primary);
 
     // 表单面板
-    Rectangle panelRect = {SCREEN_WIDTH/2 - 250, 200, 500, 400};
+    Rectangle panelRect = {SCREEN_WIDTH/2 - 250, 220, 500, 440};
     DrawRectangleRounded(panelRect, 0.1f, 12, STYLE->theme.panelBg);
     UILayout formLayout = UIBeginLayout(panelRect, UI_DIR_VERTICAL, 20, 40);
 
@@ -221,10 +228,11 @@ void MenuLogin_Show(void) {
         else if(Account_Login(g_loginForm.username, g_loginForm.password)) {
             char progressPath[256], planPath[256];
             Account_GetProgressPath(progressPath, sizeof(progressPath));
-            setProgressFilePath(progressPath);
-            loadProgress();
+            set_progress_file_path(progressPath);
+            load_progress();
             Account_GetPlanPath(planPath, sizeof(planPath));
             Plan_SetFilePath(planPath);
+            RefreshReviewList();
             snprintf(LOGIN_MSG, 128, u8"欢迎回来，%s！", Account_GetCurrentUser());
             memset(&g_loginForm, 0, sizeof(g_loginForm));
             g_loginForm.ready = true;
@@ -258,7 +266,7 @@ void MenuRegister_Show(void) {
         g_regForm.userState.hasFocus = true;
     }
 
-    Rectangle contentRect = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle contentRect = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 30, 50);
 
     // 标题
@@ -268,7 +276,7 @@ void MenuRegister_Show(void) {
         42, 1, STYLE->theme.primary);
 
     // 表单面板
-    Rectangle panelRect = {SCREEN_WIDTH/2 - 250, 200, 500, 450};
+    Rectangle panelRect = {SCREEN_WIDTH/2 - 250, 220, 500, 520};
     DrawRectangleRounded(panelRect, 0.1f, 12, STYLE->theme.panelBg);
     UILayout formLayout = UIBeginLayout(panelRect, UI_DIR_VERTICAL, 18, 40);
 
@@ -324,10 +332,11 @@ void MenuRegister_Show(void) {
             Account_Login(g_regForm.username, g_regForm.password);
             char progressPath[256], planPath[256];
             Account_GetProgressPath(progressPath, sizeof(progressPath));
-            setProgressFilePath(progressPath);
-            loadProgress();
+            set_progress_file_path(progressPath);
+            load_progress();
             Account_GetPlanPath(planPath, sizeof(planPath));
             Plan_SetFilePath(planPath);
+            RefreshReviewList();
             snprintf(LOGIN_MSG, 128, u8"注册成功，欢迎 %s！", g_regForm.username);
             memset(&g_regForm, 0, sizeof(g_regForm));
             g_regForm.ready = true;
@@ -352,4 +361,105 @@ void MenuRegister_Show(void) {
         g_regForm.ready = true;
         LOGIN_MSG[0] = '\0';
     }
+}
+
+void MenuDeleteAccount_Show(void) {
+    Rectangle contentRect = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
+    UILayout layout = UIBeginLayout(contentRect, UI_DIR_VERTICAL, 20, 40);
+
+    // 标题
+    Rectangle titleRect = UILayoutNext(&layout, -1, 50);
+    DrawTextAuto(u8"删除账号", (Vector2){contentRect.x + 50, titleRect.y}, 42, 1, STYLE->theme.textPrimary);
+
+    // 提示
+    Rectangle hintRect = UILayoutNext(&layout, -1, 30);
+    DrawTextAuto(u8"选择要删除的账号，需输入对应密码确认", (Vector2){hintRect.x, hintRect.y},
+        20, 1, STYLE->theme.textSecondary);
+
+    // 提示消息
+    Rectangle msgRect = UILayoutNext(&layout, -1, 30);
+    if(g_deleteMsg[0]) {
+        bool ok = strstr(g_deleteMsg, u8"已删除");
+        DrawTextAuto(g_deleteMsg, (Vector2){msgRect.x, msgRect.y}, 22, 1,
+            ok ? STYLE->theme.success : STYLE->theme.error);
+    }
+
+    // 用户列表
+    Rectangle listPanel = UILayoutNext(&layout, -1, -1);
+    DrawRectangleRounded(listPanel, 0.1f, 12, STYLE->theme.panelBg);
+
+    UIScrollView sv = {0};
+    sv.viewport = listPanel;
+    sv.contentSize = (Vector2){listPanel.width, ACCOUNT.userCount * 90.0f + 20};
+    UIBeginScrollView(&sv, listPanel, sv.contentSize);
+
+    for(int i = 0; i < ACCOUNT.userCount; i++) {
+        float rowH = (g_deleteTarget == i) ? 85.0f : 48.0f;
+        Rectangle row = {listPanel.x + 15, listPanel.y + 10 + (i * 90) - sv.scrollOffset.y,
+                         listPanel.width - 30, rowH};
+
+        if(i % 2 == 0) { DrawRectangleRec(row, Fade(STYLE->theme.inputBg, 0.5f)); }
+
+        // 用户名
+        DrawTextAuto(ACCOUNT.users[i].username,
+            (Vector2){row.x + 15, row.y + 12}, 24, 1, STYLE->theme.textPrimary);
+
+        // 注册时间
+        char timeStr[64] = {0};
+        if(ACCOUNT.users[i].createdTime > 0) {
+            strftime(timeStr, sizeof(timeStr), u8"注册于 %Y-%m-%d",
+                localtime(&ACCOUNT.users[i].createdTime));
+        }
+        DrawTextAuto(timeStr, (Vector2){row.x + 180, row.y + 15}, 18, 1,
+            STYLE->theme.textSecondary);
+
+        // 当前用户标记
+        if(i == Account_GetCurrentIndex()) {
+            DrawTextAuto(u8"[当前登录]",
+                (Vector2){row.x + 400, row.y + 15}, 18, 1, STYLE->theme.primary);
+        }
+
+        // 删除按钮
+        Rectangle delBtn = {row.x + row.width - 90, row.y + 8, 80, 32};
+        if(UIButton(u8"删除", delBtn, STYLE, UI_STATE, 500 + i)) {
+            g_deleteTarget = i;
+            memset(&g_deletePassState, 0, sizeof(g_deletePassState));
+            g_deleteMsg[0] = '\0';
+        }
+
+        // 密码确认区域
+        if(g_deleteTarget == i) {
+            Rectangle confirmR = {row.x, row.y + 48, row.width, 35};
+            DrawRectangleRec(confirmR, Fade(STYLE->theme.panelBg, 0.95f));
+
+            DrawTextAuto(u8"密码:",
+                (Vector2){confirmR.x + 5, confirmR.y + 8}, 18, 1, STYLE->theme.textSecondary);
+            UITextBox(&g_deletePassState,
+                (Rectangle){confirmR.x + 50, confirmR.y + 2, 180, 30},
+                STYLE, UI_STATE, true);
+            if(UIButton(u8"确认删除", (Rectangle){confirmR.x + 240, confirmR.y + 2, 90, 30},
+                STYLE, UI_STATE, 550 + i)) {
+                if(!g_deletePassState.buffer[0]) {
+                    strcpy(g_deleteMsg, u8"请输入密码");
+                }
+                else if(Account_Delete(g_deleteTarget, g_deletePassState.buffer)) {
+                    if(!Account_IsLoggedIn()) {
+                        strcpy(g_deleteMsg, u8"已删除当前账号，请重新登录");
+                        g_app.loginRequired = true;
+                    } else {
+                        strcpy(g_deleteMsg, u8"账号已删除");
+                    }
+                    g_deleteTarget = -1;
+                } else {
+                    strcpy(g_deleteMsg, u8"密码错误");
+                }
+            }
+            if(UIButton(u8"取消", (Rectangle){confirmR.x + 340, confirmR.y + 2, 70, 30},
+                STYLE, UI_STATE, 580 + i)) {
+                g_deleteTarget = -1;
+                g_deleteMsg[0] = '\0';
+            }
+        }
+    }
+    UIEndScrollView(&sv, STYLE, UI_STATE);
 }

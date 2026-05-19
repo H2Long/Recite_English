@@ -5,6 +5,7 @@
 
 #include "raylib.h"
 #include "raylib_word_ui.h"
+#include "config.h"
 #include <time.h>
 
 // 单词学习进度
@@ -22,32 +23,30 @@ typedef struct {
     WordProgress progress;
 } WordWithProgress;
 
-#define MAX_WORDS 100
-
 extern WordWithProgress g_words[MAX_WORDS];
 extern WordEntry* g_wordLibrary;
 extern int g_wordProgressCount;
 extern int g_wordCount;
 
-void loadWordsFromFile(const char* filename);
-void freeWordLibrary(void);
-void initWords(void);
-void shuffleArray(int *array, int count);
-void setProgressFilePath(const char* path);
-void saveProgress(void);
-void loadProgress(void);
-void clearProgress(void);
+void load_words_from_file(const char* filename);
+void free_word_library(void);
+void init_words(void);
+void shuffle_array(int *array, int count);
+void set_progress_file_path(const char* path);
+void save_progress(void);
+void load_progress(void);
+void clear_progress(void);
 
-int searchWordsByRegex(const char* pattern, int* results, int maxResults);
-int searchWordsSimple(const char* query, int* results, int maxResults);
+int search_words_by_regex(const char* pattern, int* results, int maxResults);
+int search_words_simple(const char* query, int* results, int maxResults);
 
-bool saveWordsToFile(const char* filename);
-bool addWordToLibrary(const char* word, const char* phonetic, const char* definition,
+bool save_words_to_file(const char* filename);
+bool add_word_to_library(const char* word, const char* phonetic, const char* definition,
                       const char* example, const char* exampleTranslation);
-bool editWordInLibrary(int index, const char* word, const char* phonetic,
+bool edit_word_in_library(int index, const char* word, const char* phonetic,
                        const char* definition, const char* example,
                        const char* exampleTranslation);
-bool deleteWordFromLibrary(int index);
-void reloadWords(void);
+bool delete_word_from_library(int index);
+void reload_words(void);
 
 #endif

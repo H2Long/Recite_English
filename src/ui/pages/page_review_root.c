@@ -3,7 +3,7 @@
 #include "pages.h"
 
 void MenuReviewRoot_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_VERTICAL, 30, 50);
 
     // 标题
@@ -28,8 +28,8 @@ void MenuReviewRoot_Show(void) {
 
     for (int i = 0; i < 3; i++) {
         Rectangle card = UILayoutNext(&cl, 320, -1);
-        DrawRectangleRounded(card, 0.1f, 12, STYLE->theme.panelBg);
-        DrawRectangleRoundedLines(card, 0.1f, 12, modes[i].c);
+        UIDrawCard(card, 0.08f, STYLE);
+        DrawRectangleRoundedLines(card, 0.08f, 12, Fade(modes[i].c, 0.4f));
         Vector2 tsz = MeasureTextAuto(modes[i].t, 32, 1);
         DrawTextAuto(modes[i].t, (Vector2){card.x + 20, card.y + 20}, 32, 1, modes[i].c);
         Rectangle da = {card.x + 20, card.y + 70, card.width - 40, card.height - 130};

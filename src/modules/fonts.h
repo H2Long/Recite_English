@@ -11,8 +11,8 @@ extern Font g_englishFont;
 extern Font g_latinFont;
 extern Font g_mergedFont;
 
-void loadFonts(void);
-void unloadFonts(void);
+void load_fonts(void);
+void unload_fonts(void);
 
 Vector2 MeasureTextAuto(const char* text, float fontSize, float spacing);
 void DrawTextAuto(const char* text, Vector2 pos, float fontSize, float spacing, Color tint);

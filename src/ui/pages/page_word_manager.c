@@ -4,7 +4,7 @@
 
 static struct {
     int selIdx;
-    int results[100];
+    int results[MAX_WORDS];
     int resultCnt;
     char query[64];
     UITextBoxState searchBox;
@@ -25,7 +25,7 @@ static void wmDoSearch(void) {
     char ql[64];
     strcpy(ql, q);
     for (int j = 0; ql[j]; j++) ql[j] = tolower(ql[j]);
-    for (int i = 0; i < g_wordCount && g_wmState.resultCnt < 100; i++) {
+    for (int i = 0; i < g_wordCount && g_wmState.resultCnt < MAX_WORDS; i++) {
         char wl[256];
         strcpy(wl, g_wordLibrary[i].word);
         for (int j = 0; wl[j]; j++) wl[j] = tolower(wl[j]);
@@ -36,7 +36,7 @@ static void wmDoSearch(void) {
 }
 
 void MenuWordManager_Show(void) {
-    Rectangle cr = {250, 80, SCREEN_WIDTH - 270, SCREEN_HEIGHT - 100};
+    Rectangle cr = {280, 80, SCREEN_WIDTH - 300, SCREEN_HEIGHT - 100};
     UILayout lay = UIBeginLayout(cr, UI_DIR_VERTICAL, 20, 25);
 
     DrawTextAuto(u8"词库管理", (Vector2){cr.x + 25, UILayoutNext(&lay, -1, 50).y},
@@ -105,8 +105,8 @@ void MenuWordManager_Show(void) {
 
     const char* lbl[5] = {u8"单词", u8"音标", u8"释义", u8"例句", u8"例句翻译"};
     for (int f = 0; f < 5; f++) {
-        DrawTextAuto(lbl[f], (Vector2){UILayoutNext(&el, -1, 28).x, UILayoutNext(&el, -1, 28).y},
-            18, 1, STYLE->theme.textSecondary);
+        Rectangle lblR = UILayoutNext(&el, -1, 28);
+        DrawTextAuto(lbl[f], (Vector2){lblR.x, lblR.y}, 18, 1, STYLE->theme.textSecondary);
         UITextBox(&g_wmState.fields[f], UILayoutNext(&el, -1, 38), STYLE, UI_STATE, false);
     }
 
@@ -127,22 +127,22 @@ void MenuWordManager_Show(void) {
             }
         }
         if(g_wmState.isAdding) {
-            if(addWordToLibrary(g_wmState.fields[0].buffer, g_wmState.fields[1].buffer,
+            if(add_word_to_library(g_wmState.fields[0].buffer, g_wmState.fields[1].buffer,
                 g_wmState.fields[2].buffer, g_wmState.fields[3].buffer,
                 g_wmState.fields[4].buffer)) {
                 strcpy(g_wmState.msg, u8"添加成功！");
                 g_wmState.isAdding = false;
-                reloadWords();
+                reload_words();
                 wmDoSearch();
             }
             else strcpy(g_wmState.msg, u8"添加失败：单词不能为空");
         }
         else if(g_wmState.selIdx >= 0) {
-            if(editWordInLibrary(g_wmState.selIdx, g_wmState.fields[0].buffer,
+            if(edit_word_in_library(g_wmState.selIdx, g_wmState.fields[0].buffer,
                 g_wmState.fields[1].buffer, g_wmState.fields[2].buffer,
                 g_wmState.fields[3].buffer, g_wmState.fields[4].buffer)) {
                 strcpy(g_wmState.msg, u8"保存成功！");
-                reloadWords();
+                reload_words();
                 wmDoSearch();
             }
             else strcpy(g_wmState.msg, u8"保存失败");
@@ -156,10 +156,10 @@ void MenuWordManager_Show(void) {
     }
     if(UIButton(u8"删除", UILayoutNext(&bl, 120, 42), STYLE, UI_STATE, 603)) {
         if(g_wmState.selIdx >= 0 && !g_wmState.isAdding) {
-            if(deleteWordFromLibrary(g_wmState.selIdx)) {
+            if(delete_word_from_library(g_wmState.selIdx)) {
                 strcpy(g_wmState.msg, u8"删除成功！");
                 g_wmState.selIdx = -1;
-                reloadWords();
+                reload_words();
                 wmDoSearch();
                 for (int f = 0; f < 5; f++) memset(&g_wmState.fields[f], 0, sizeof(UITextBoxState));
             }

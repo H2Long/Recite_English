@@ -34,6 +34,7 @@ void Account_Save(void);
 bool Account_Register(const char* username, const char* password);
 bool Account_Login(const char* username, const char* password);
 void Account_Logout(void);
+bool Account_Delete(int index, const char* password);
 
 bool Account_IsLoggedIn(void);
 const char* Account_GetCurrentUser(void);
