@@ -40,3 +40,4 @@ build/
 
 # 进度文件（是否提交可选）
 # progress.txt
+squashfs-root/
