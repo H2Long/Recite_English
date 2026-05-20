@@ -1,19 +1,18 @@
 #!/bin/bash
 # AppRun — AppImage 入口脚本
-# cd 到 data/ 所在目录（程序用 ./data/ 相对路径读文件），再启动二进制
+# 把只读 data/ 复制到用户目录，然后 cd 过去启动二进制
 
-# $APPDIR 由 AppImage 运行时自动设置，比 readlink -f 更可靠
+# $APPDIR 由 AppImage 运行时自动设置
 if [ -z "$APPDIR" ]; then
     APPDIR="$(cd "$(dirname "$0")" && pwd -P)"
 fi
 
-DATA_DIR="$APPDIR/usr/share/recite-english"
+RO_DATA_DIR="$APPDIR/usr/share/recite-english"
 BIN="$APPDIR/usr/bin/main_c"
+USER_DATA="$HOME/.local/share/recite-english"
 
-if [ ! -d "$DATA_DIR" ]; then
-    echo "错误: 数据目录不存在: $DATA_DIR" >&2
-    echo "AppImage 挂载点: $APPDIR" >&2
-    ls -la "$APPDIR/usr/share/" 2>&1 >&2
+if [ ! -d "$RO_DATA_DIR" ]; then
+    echo "错误: 数据目录不存在: $RO_DATA_DIR" >&2
     exit 1
 fi
 
@@ -22,5 +21,11 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 
-cd "$DATA_DIR" || exit 1
+# 首次运行：把只读数据复制到可写用户目录
+if [ ! -d "$USER_DATA" ]; then
+    mkdir -p "$USER_DATA"
+    cp -r "$RO_DATA_DIR"/* "$USER_DATA"/
+fi
+
+cd "$USER_DATA" || exit 1
 exec "$BIN" "$@"
